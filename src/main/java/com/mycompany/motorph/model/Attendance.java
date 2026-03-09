@@ -56,4 +56,8 @@ public class Attendance {
     public void setLogOutTime(double logOutTime) {
         this.logOutTime = logOutTime;
     }
+
+    public Object calculateHoursWorked() {
+        throw new UnsupportedOperationException("Not supported yet."); // Generated from nbfs://nbhost/SystemFileSystem/Templates/Classes/Code/GeneratedMethodBody
+    }
 }
