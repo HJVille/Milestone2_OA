@@ -7,40 +7,90 @@ package com.mycompany.motorph.ui;
 import com.mycompany.motorph.model.User;
 
 import javax.swing.*;
+import javax.swing.border.EmptyBorder;
 import java.awt.*;
-import java.io.BufferedReader;
-import java.io.FileReader;
 
 public class EmployeeDashboardFrame extends JFrame {
 
     private User loggedUser;
 
-    public EmployeeDashboardFrame(User user) {
+    private final Color PRIMARY_BLUE = new Color(44,74,115);
+    private final Color BACKGROUND = new Color(244,247,251);
+    private final Color PANEL_BORDER = new Color(217,226,236);
+    private final Color TEXT_COLOR = new Color(36,52,71);
+
+    public EmployeeDashboardFrame(User user){
 
         this.loggedUser = user;
 
         setTitle("MotorPH Employee Dashboard");
-        setSize(350,320);
+        setSize(900,550);
         setLocationRelativeTo(null);
         setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
+        setLayout(new BorderLayout());
 
-        JPanel panel = new JPanel(new GridLayout(6,1,10,10));
+        getContentPane().setBackground(BACKGROUND);
 
-        JButton profileBtn = new JButton("View Profile");
-        JButton govBtn = new JButton("Government IDs");
-        JButton payslipBtn = new JButton("View Payslip");
-        JButton historyBtn = new JButton("Payslip History");
-        JButton changePassBtn = new JButton("Change Password");
-        JButton logoutBtn = new JButton("Logout");
+        /* HEADER */
 
-        panel.add(profileBtn);
-        panel.add(govBtn);
-        panel.add(payslipBtn);
-        panel.add(historyBtn);
-        panel.add(changePassBtn);
-        panel.add(logoutBtn);
+        JPanel header = new JPanel(new BorderLayout());
+        header.setBackground(PRIMARY_BLUE);
+        header.setBorder(new EmptyBorder(20,30,20,30));
 
-        add(panel);
+        JLabel title = new JLabel("MotorPH Employee Portal");
+        title.setForeground(Color.WHITE);
+        title.setFont(new Font("Segoe UI", Font.BOLD, 22));
+
+        header.add(title, BorderLayout.WEST);
+
+        add(header, BorderLayout.NORTH);
+
+        /* DASHBOARD */
+
+        JPanel dashboard = new JPanel(new GridLayout(2,3,25,25));
+        dashboard.setBorder(new EmptyBorder(40,40,40,40));
+        dashboard.setBackground(BACKGROUND);
+
+        JButton profileBtn = createCardButton(
+                "View Profile",
+                "View employee information"
+        );
+
+        JButton govBtn = createCardButton(
+                "Government IDs",
+                "SSS, PhilHealth, PagIBIG"
+        );
+
+        JButton payslipBtn = createCardButton(
+                "View Payslip",
+                "View latest payslip"
+        );
+
+        JButton historyBtn = createCardButton(
+                "Payslip History",
+                "View payroll history"
+        );
+
+        JButton changePassBtn = createCardButton(
+                "Change Password",
+                "Update login password"
+        );
+
+        JButton logoutBtn = createCardButton(
+                "Logout",
+                "Return to login"
+        );
+
+        dashboard.add(profileBtn);
+        dashboard.add(govBtn);
+        dashboard.add(payslipBtn);
+        dashboard.add(historyBtn);
+        dashboard.add(changePassBtn);
+        dashboard.add(logoutBtn);
+
+        add(dashboard, BorderLayout.CENTER);
+
+        /* ACTIONS */
 
         profileBtn.addActionListener(e ->
                 new ViewProfileFrame(loggedUser).setVisible(true));
@@ -48,8 +98,9 @@ public class EmployeeDashboardFrame extends JFrame {
         govBtn.addActionListener(e ->
                 new GovernmentIDsFrame(loggedUser).setVisible(true));
 
-        // VIEW LATEST PAYSLIP
-        payslipBtn.addActionListener(e -> openLatestPayslip());
+        payslipBtn.addActionListener(e ->
+                JOptionPane.showMessageDialog(this,
+                        "Open payslip from Payslip History"));
 
         historyBtn.addActionListener(e ->
                 new PayslipHistoryFrame(loggedUser).setVisible(true));
@@ -66,55 +117,45 @@ public class EmployeeDashboardFrame extends JFrame {
 
     }
 
-    private void openLatestPayslip(){
+    private JButton createCardButton(String title,String subtitle){
 
-        try{
+        JButton button = new JButton(
+                "<html><center>"
+                        +"<div style='font-size:16px;font-weight:bold;'>"
+                        +title+
+                        "</div>"
+                        +"<div style='font-size:11px;'>"
+                        +subtitle+
+                        "</div>"
+                        +"</center></html>"
+        );
 
-            BufferedReader br = new BufferedReader(new FileReader("payroll_records.csv"));
+        button.setBackground(Color.WHITE);
+        button.setForeground(TEXT_COLOR);
 
-            String line;
-            String lastPeriodStart = null;
-            String lastPeriodEnd = null;
+        button.setFont(new Font("Segoe UI",Font.BOLD,14));
+        button.setFocusPainted(false);
 
-            br.readLine();
+        button.setCursor(new Cursor(Cursor.HAND_CURSOR));
 
-            while((line = br.readLine()) != null){
+        button.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(PANEL_BORDER),
+                new EmptyBorder(25,20,25,20)
+        ));
 
-                String[] data = line.split(",");
+        button.addMouseListener(new java.awt.event.MouseAdapter(){
 
-                int empNum = Integer.parseInt(data[0]);
-
-                if(empNum == loggedUser.getEmployeeNumber()){
-
-                    lastPeriodStart = data[2];
-                    lastPeriodEnd = data[3];
-
-                }
-
+            public void mouseEntered(java.awt.event.MouseEvent evt){
+                button.setBackground(new Color(236,241,248));
             }
 
-            br.close();
-
-            if(lastPeriodStart == null){
-
-                JOptionPane.showMessageDialog(this,
-                        "No payslip found.");
-
-                return;
+            public void mouseExited(java.awt.event.MouseEvent evt){
+                button.setBackground(Color.WHITE);
             }
 
-            new PayslipFrame(
-                    loggedUser,
-                    lastPeriodStart,
-                    lastPeriodEnd
-            ).setVisible(true);
+        });
 
-        }catch(Exception ex){
-
-            JOptionPane.showMessageDialog(this,
-                    "Unable to load payslip.");
-
-        }
+        return button;
 
     }
 

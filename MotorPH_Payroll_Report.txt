@@ -2,13 +2,6 @@
            MOTORPH PAYROLL REPORT
 ========================================
 
-Employee #: 10001
-Employee: Manuel III Garcia
-Period: 2026-03-01 to 2026-03-15
-Gross: ₱47,750.00
-Deductions: ₱6,511.50
-Net: ₱41,238.50
-----------------------------------------
 Employee #: 10002
 Employee: Antonio Lim
 Period: 2026-03-01 to 2026-03-15
@@ -242,6 +235,6 @@ Net: ₱27,960.00
 ----------------------------------------
 
 =========== PAYROLL SUMMARY ===========
-Total Gross Payroll: ₱719,410.00
-Total Deductions: ₱10,636.50
-Total Net Payroll: ₱708,773.50
+Total Gross Payroll: ₱671,660.00
+Total Deductions: ₱4,125.00
+Total Net Payroll: ₱667,535.00

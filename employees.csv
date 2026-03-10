@@ -1,5 +1,4 @@
 EmployeeNumber,LastName,FirstName,BirthDate,Address,Phone,SSS,Philhealth,TIN,Pagibig,Status,Position,Supervisor,BasicSalary,RiceSubsidy,PhoneAllowance,ClothingAllowance,GrossSemiMonthlyRate,HourlyRate
-10001,Garcia,Manuel III,10/11/1983,Valero Carpark Building Valero Street 1227,Makati City,966-860-270,44-4506057-3,820126853951,442-605-657-000,691295330870,Senior Developer,Chief Executive Officer,65000.0,90000.0,1500.0,2000.0,1000.0,45000.0
 10002,Lim,Antonio,06/19/1988,San Antonio De Padua 2,Block 1 Lot 8 and 2,Dasmarinas,Cavite,171-867-411,52-2061274-9,331735646338,683-102-776-000,663904995411,0.0,0.0,0.0,0.0,60000.0,1500.0
 10003,Aquino,Bianca Sofia,08/04/1989,Rm. 402 4/F Jiao Building Timog Avenue Cor. Quezon Avenue 1100,Quezon City,966-889-370,30-8870406-2,177451189665,971-711-280-000,171519773969,Regular,Chief Finance Officer,0.0,0.0,60000.0,1500.0,2000.0,1000.0
 10004,Reyes,Isabella,06/16/1994,460 Solanda Street Intramuros 1000,Manila,786-868-477,40-2511815-0,341911411254,876-809-437-000,416946776041,Regular,Chief Marketing Officer,0.0,0.0,60000.0,1500.0,2000.0,1000.0

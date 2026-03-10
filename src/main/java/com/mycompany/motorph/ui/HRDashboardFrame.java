@@ -4,72 +4,110 @@
  */
 package com.mycompany.motorph.ui;
 
+import com.mycompany.motorph.model.User;
+
 import javax.swing.*;
+import javax.swing.border.EmptyBorder;
 import java.awt.*;
 
 public class HRDashboardFrame extends JFrame {
 
-    public HRDashboardFrame() {
+    private User loggedUser;
 
-        setTitle("MotorPH - HR Dashboard");
-        setSize(600,350);
+    /* MOTORPH COLORS */
+
+    private final Color PRIMARY_BLUE = new Color(44,74,115);
+    private final Color BACKGROUND = new Color(244,247,251);
+    private final Color PANEL_BORDER = new Color(217,226,236);
+    private final Color TEXT_COLOR = new Color(36,52,71);
+
+    public HRDashboardFrame(User user){
+
+        this.loggedUser = user;
+
+        setTitle("MotorPH HR Dashboard");
+        setSize(900,550);
         setLocationRelativeTo(null);
         setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
+        setLayout(new BorderLayout());
 
-        JPanel mainPanel = new JPanel();
-        mainPanel.setLayout(new BorderLayout());
+        getContentPane().setBackground(BACKGROUND);
 
-        // ===== TITLE =====
-        JLabel title = new JLabel("HR Management Dashboard", SwingConstants.CENTER);
-        title.setFont(new Font("Arial", Font.BOLD, 18));
-        title.setBorder(BorderFactory.createEmptyBorder(10,0,10,0));
+        /* HEADER */
 
-        mainPanel.add(title, BorderLayout.NORTH);
+        JPanel header = new JPanel(new BorderLayout());
+        header.setBackground(PRIMARY_BLUE);
+        header.setBorder(new EmptyBorder(20,30,20,30));
 
-        // ===== BUTTON PANEL =====
-        JPanel buttonPanel = new JPanel(new GridLayout(3,2,20,20));
-        buttonPanel.setBorder(BorderFactory.createEmptyBorder(20,40,20,40));
+        JLabel title = new JLabel("MotorPH HR Management");
+        title.setForeground(Color.WHITE);
+        title.setFont(new Font("Segoe UI", Font.BOLD, 22));
 
-        JButton viewEmployeesBtn = new JButton("View Employees");
-        JButton addEmployeeBtn = new JButton("Add Employee");
-        JButton updateEmployeeBtn = new JButton("Update Employee");
-        JButton deleteEmployeeBtn = new JButton("Delete Employee");
-        JButton approveLeaveBtn = new JButton("Approve Leave");
-        JButton logoutBtn = new JButton("Logout");
+        header.add(title, BorderLayout.WEST);
 
-        buttonPanel.add(viewEmployeesBtn);
-        buttonPanel.add(addEmployeeBtn);
-        buttonPanel.add(updateEmployeeBtn);
-        buttonPanel.add(deleteEmployeeBtn);
-        buttonPanel.add(approveLeaveBtn);
-        buttonPanel.add(logoutBtn);
+        add(header, BorderLayout.NORTH);
 
-        mainPanel.add(buttonPanel, BorderLayout.CENTER);
+        /* DASHBOARD */
 
-        add(mainPanel);
+        JPanel dashboard = new JPanel(new GridLayout(2,3,25,25));
+        dashboard.setBorder(new EmptyBorder(40,40,40,40));
+        dashboard.setBackground(BACKGROUND);
 
-        // ===== BUTTON ACTIONS =====
+        JButton viewEmployeesBtn = createCardButton(
+                "View Employees",
+                "Browse employee records"
+        );
+
+        JButton addEmployeeBtn = createCardButton(
+                "Add Employee",
+                "Register a new employee"
+        );
+
+        JButton updateEmployeeBtn = createCardButton(
+                "Update Employee",
+                "Modify employee information"
+        );
+
+        JButton deleteEmployeeBtn = createCardButton(
+                "Delete Employee",
+                "Remove employee record"
+        );
+
+        JButton approveLeaveBtn = createCardButton(
+                "Approve Leave",
+                "Review leave requests"
+        );
+
+        JButton logoutBtn = createCardButton(
+                "Logout",
+                "Return to login screen"
+        );
+
+        dashboard.add(viewEmployeesBtn);
+        dashboard.add(addEmployeeBtn);
+        dashboard.add(updateEmployeeBtn);
+        dashboard.add(deleteEmployeeBtn);
+        dashboard.add(approveLeaveBtn);
+        dashboard.add(logoutBtn);
+
+        add(dashboard, BorderLayout.CENTER);
+
+        /* ACTIONS */
 
         viewEmployeesBtn.addActionListener(e ->
-                new EmployeeListFrame().setVisible(true)
-        );
+                JOptionPane.showMessageDialog(this,"View Employees feature"));
 
         addEmployeeBtn.addActionListener(e ->
-                new AddEmployeeFrame().setVisible(true)
-        );
+                JOptionPane.showMessageDialog(this,"Add Employee feature"));
 
         updateEmployeeBtn.addActionListener(e ->
-                new UpdateEmployeeFrame().setVisible(true)
-        );
+                JOptionPane.showMessageDialog(this,"Update Employee feature"));
 
         deleteEmployeeBtn.addActionListener(e ->
-                new DeleteEmployeeFrame().setVisible(true)
-        );
+                JOptionPane.showMessageDialog(this,"Delete Employee feature"));
 
         approveLeaveBtn.addActionListener(e ->
-                JOptionPane.showMessageDialog(this,
-                        "Leave approval module will be added next.")
-        );
+                JOptionPane.showMessageDialog(this,"Approve Leave feature"));
 
         logoutBtn.addActionListener(e -> {
 
@@ -77,6 +115,49 @@ public class HRDashboardFrame extends JFrame {
             dispose();
 
         });
+
+    }
+
+    /* CARD BUTTON STYLE */
+
+    private JButton createCardButton(String title, String subtitle){
+
+        JButton button = new JButton(
+                "<html><center>"
+                        + "<div style='font-size:16px;font-weight:bold;'>"
+                        + title
+                        + "</div>"
+                        + "<div style='font-size:11px;'>"
+                        + subtitle
+                        + "</div>"
+                        + "</center></html>"
+        );
+
+        button.setBackground(Color.WHITE);
+        button.setForeground(TEXT_COLOR);
+        button.setFont(new Font("Segoe UI", Font.BOLD, 14));
+
+        button.setFocusPainted(false);
+        button.setCursor(new Cursor(Cursor.HAND_CURSOR));
+
+        button.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(PANEL_BORDER),
+                new EmptyBorder(25,20,25,20)
+        ));
+
+        button.addMouseListener(new java.awt.event.MouseAdapter(){
+
+            public void mouseEntered(java.awt.event.MouseEvent evt){
+                button.setBackground(new Color(236,241,248));
+            }
+
+            public void mouseExited(java.awt.event.MouseEvent evt){
+                button.setBackground(Color.WHITE);
+            }
+
+        });
+
+        return button;
 
     }
 

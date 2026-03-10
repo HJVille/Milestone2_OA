@@ -13,6 +13,7 @@ import com.mycompany.motorph.service.PayrollReportService;
 import com.mycompany.motorph.service.CSVExportService;
 
 import javax.swing.*;
+import javax.swing.border.EmptyBorder;
 import java.awt.*;
 import java.io.BufferedWriter;
 import java.io.FileWriter;
@@ -22,46 +23,82 @@ public class PayrollDashboardFrame extends JFrame {
 
     private User loggedUser;
 
+    private final Color PRIMARY_BLUE = new Color(44,74,115);
+    private final Color BACKGROUND = new Color(244,247,251);
+    private final Color PANEL_BORDER = new Color(217,226,236);
+    private final Color TEXT_COLOR = new Color(36,52,71);
+
     public PayrollDashboardFrame(User user) {
 
         this.loggedUser = user;
 
         setTitle("MotorPH Payroll Dashboard");
-        setSize(420,420);
+        setSize(900,550);
         setLocationRelativeTo(null);
         setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
+        setLayout(new BorderLayout());
 
-        JPanel panel = new JPanel(new GridLayout(7,1,10,10));
+        getContentPane().setBackground(BACKGROUND);
 
-        JLabel title = new JLabel("MotorPH Payroll Dashboard", SwingConstants.CENTER);
+        JPanel header = new JPanel(new BorderLayout());
+        header.setBackground(PRIMARY_BLUE);
+        header.setBorder(new EmptyBorder(20,30,20,30));
 
-        JButton processPayrollBtn = new JButton("Process Payroll");
-        JButton viewRecordsBtn = new JButton("View Payroll Records");
-        JButton analyticsBtn = new JButton("Payroll Analytics");
-        JButton exportReportBtn = new JButton("Export Payroll Report");
-        JButton exportCSVBtn = new JButton("Export Payroll (CSV)");
-        JButton logoutBtn = new JButton("Logout");
+        JLabel title = new JLabel("MotorPH Payroll Management");
+        title.setForeground(Color.WHITE);
+        title.setFont(new Font("Segoe UI", Font.BOLD, 22));
 
-        panel.add(title);
-        panel.add(processPayrollBtn);
-        panel.add(viewRecordsBtn);
-        panel.add(analyticsBtn);
-        panel.add(exportReportBtn);
-        panel.add(exportCSVBtn);
-        panel.add(logoutBtn);
+        header.add(title, BorderLayout.WEST);
 
-        add(panel);
+        add(header, BorderLayout.NORTH);
+
+        JPanel dashboard = new JPanel(new GridLayout(2,3,25,25));
+        dashboard.setBorder(new EmptyBorder(40,40,40,40));
+        dashboard.setBackground(BACKGROUND);
+
+        JButton processPayrollBtn = createCardButton(
+                "Process Payroll",
+                "Run payroll computation"
+        );
+
+        JButton viewRecordsBtn = createCardButton(
+                "View Payroll Records",
+                "Browse payroll history"
+        );
+
+        JButton analyticsBtn = createCardButton(
+                "Payroll Analytics",
+                "View payroll statistics"
+        );
+
+        JButton exportReportBtn = createCardButton(
+                "Export Payroll Report",
+                "Generate payroll summary"
+        );
+
+        JButton exportCSVBtn = createCardButton(
+                "Export CSV",
+                "Export payroll dataset"
+        );
+
+        JButton logoutBtn = createCardButton(
+                "Logout",
+                "Return to login"
+        );
+
+        dashboard.add(processPayrollBtn);
+        dashboard.add(viewRecordsBtn);
+        dashboard.add(analyticsBtn);
+        dashboard.add(exportReportBtn);
+        dashboard.add(exportCSVBtn);
+        dashboard.add(logoutBtn);
+
+        add(dashboard, BorderLayout.CENTER);
 
         processPayrollBtn.addActionListener(e -> processPayroll());
-
-        viewRecordsBtn.addActionListener(e ->
-                new PayrollRecordsFrame().setVisible(true));
-
-        analyticsBtn.addActionListener(e ->
-                new PayrollAnalyticsFrame().setVisible(true));
-
+        viewRecordsBtn.addActionListener(e -> new PayrollRecordsFrame().setVisible(true));
+        analyticsBtn.addActionListener(e -> new PayrollAnalyticsFrame().setVisible(true));
         exportReportBtn.addActionListener(e -> exportReport());
-
         exportCSVBtn.addActionListener(e -> exportCSV());
 
         logoutBtn.addActionListener(e -> {
@@ -73,22 +110,52 @@ public class PayrollDashboardFrame extends JFrame {
 
     }
 
+    private JButton createCardButton(String title, String subtitle){
+
+        JButton button = new JButton(
+                "<html><center>"
+                        + "<div style='font-size:16px;font-weight:bold;'>"
+                        + title
+                        + "</div>"
+                        + "<div style='font-size:11px;'>"
+                        + subtitle
+                        + "</div>"
+                        + "</center></html>"
+        );
+
+        button.setBackground(Color.WHITE);
+        button.setForeground(TEXT_COLOR);
+        button.setFont(new Font("Segoe UI", Font.BOLD, 14));
+        button.setFocusPainted(false);
+        button.setCursor(new Cursor(Cursor.HAND_CURSOR));
+
+        button.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(PANEL_BORDER),
+                new EmptyBorder(25,20,25,20)
+        ));
+
+        button.addMouseListener(new java.awt.event.MouseAdapter(){
+
+            public void mouseEntered(java.awt.event.MouseEvent evt){
+                button.setBackground(new Color(236,241,248));
+            }
+
+            public void mouseExited(java.awt.event.MouseEvent evt){
+                button.setBackground(Color.WHITE);
+            }
+
+        });
+
+        return button;
+
+    }
+
     private void processPayroll() {
 
         try {
 
             EmployeeDAO dao = new EmployeeDAO();
-
             List<Employee> employees = dao.loadEmployees("employees.csv");
-
-            if(employees.isEmpty()){
-
-                JOptionPane.showMessageDialog(this,
-                        "No employees loaded.");
-
-                return;
-
-            }
 
             PayrollService payrollService = new PayrollService();
 
@@ -128,8 +195,6 @@ public class PayrollDashboardFrame extends JFrame {
 
         catch(Exception ex){
 
-            ex.printStackTrace();
-
             JOptionPane.showMessageDialog(this,
                     "Payroll processing failed.");
 
@@ -140,22 +205,20 @@ public class PayrollDashboardFrame extends JFrame {
     private void exportReport(){
 
         PayrollReportService reportService = new PayrollReportService();
-
         reportService.exportReport();
 
         JOptionPane.showMessageDialog(this,
-                "Payroll report exported.\nMotorPH_Payroll_Report.txt");
+                "Payroll report exported.");
 
     }
 
     private void exportCSV(){
 
         CSVExportService csv = new CSVExportService();
-
         csv.exportPayroll();
 
         JOptionPane.showMessageDialog(this,
-                "CSV exported successfully.\nMotorPH_Payroll_Export.csv");
+                "CSV exported successfully.");
 
     }
 
