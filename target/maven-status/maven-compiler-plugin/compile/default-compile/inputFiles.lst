@@ -1,48 +1,55 @@
-/Users/heartvillegas/NetBeansProjects/MotorPH/src/main/java/com/mycompany/motorph/dao/AttendanceDAO.java
-/Users/heartvillegas/NetBeansProjects/MotorPH/src/main/java/com/mycompany/motorph/dao/EmployeeDAO.java
-/Users/heartvillegas/NetBeansProjects/MotorPH/src/main/java/com/mycompany/motorph/dao/LeaveDAO.java
-/Users/heartvillegas/NetBeansProjects/MotorPH/src/main/java/com/mycompany/motorph/dao/PayrollDAO.java
-/Users/heartvillegas/NetBeansProjects/MotorPH/src/main/java/com/mycompany/motorph/dao/UserDAO.java
-/Users/heartvillegas/NetBeansProjects/MotorPH/src/main/java/com/mycompany/motorph/main/MotorPH.java
-/Users/heartvillegas/NetBeansProjects/MotorPH/src/main/java/com/mycompany/motorph/model/AbstractDeduction.java
-/Users/heartvillegas/NetBeansProjects/MotorPH/src/main/java/com/mycompany/motorph/model/Attendance.java
-/Users/heartvillegas/NetBeansProjects/MotorPH/src/main/java/com/mycompany/motorph/model/Employee.java
-/Users/heartvillegas/NetBeansProjects/MotorPH/src/main/java/com/mycompany/motorph/model/EmployeeUser.java
-/Users/heartvillegas/NetBeansProjects/MotorPH/src/main/java/com/mycompany/motorph/model/HRUser.java
-/Users/heartvillegas/NetBeansProjects/MotorPH/src/main/java/com/mycompany/motorph/model/LeaveRequest.java
-/Users/heartvillegas/NetBeansProjects/MotorPH/src/main/java/com/mycompany/motorph/model/PagibigDeduction.java
-/Users/heartvillegas/NetBeansProjects/MotorPH/src/main/java/com/mycompany/motorph/model/PayrollBreakdown.java
-/Users/heartvillegas/NetBeansProjects/MotorPH/src/main/java/com/mycompany/motorph/model/PayrollComponent.java
-/Users/heartvillegas/NetBeansProjects/MotorPH/src/main/java/com/mycompany/motorph/model/PayrollUser.java
-/Users/heartvillegas/NetBeansProjects/MotorPH/src/main/java/com/mycompany/motorph/model/Payslip.java
-/Users/heartvillegas/NetBeansProjects/MotorPH/src/main/java/com/mycompany/motorph/model/PhilHealthDeduction.java
-/Users/heartvillegas/NetBeansProjects/MotorPH/src/main/java/com/mycompany/motorph/model/SSSDeduction.java
-/Users/heartvillegas/NetBeansProjects/MotorPH/src/main/java/com/mycompany/motorph/model/SystemUser.java
-/Users/heartvillegas/NetBeansProjects/MotorPH/src/main/java/com/mycompany/motorph/model/TaxDeduction.java
-/Users/heartvillegas/NetBeansProjects/MotorPH/src/main/java/com/mycompany/motorph/model/User.java
-/Users/heartvillegas/NetBeansProjects/MotorPH/src/main/java/com/mycompany/motorph/service/AuthService.java
-/Users/heartvillegas/NetBeansProjects/MotorPH/src/main/java/com/mycompany/motorph/service/CSVExportService.java
-/Users/heartvillegas/NetBeansProjects/MotorPH/src/main/java/com/mycompany/motorph/service/LeaveManager.java
-/Users/heartvillegas/NetBeansProjects/MotorPH/src/main/java/com/mycompany/motorph/service/LeaveService.java
-/Users/heartvillegas/NetBeansProjects/MotorPH/src/main/java/com/mycompany/motorph/service/PayrollCalculator.java
-/Users/heartvillegas/NetBeansProjects/MotorPH/src/main/java/com/mycompany/motorph/service/PayrollReportService.java
-/Users/heartvillegas/NetBeansProjects/MotorPH/src/main/java/com/mycompany/motorph/service/PayrollService.java
-/Users/heartvillegas/NetBeansProjects/MotorPH/src/main/java/com/mycompany/motorph/service/PrintPayslipService.java
-/Users/heartvillegas/NetBeansProjects/MotorPH/src/main/java/com/mycompany/motorph/service/SalaryCalculator.java
-/Users/heartvillegas/NetBeansProjects/MotorPH/src/main/java/com/mycompany/motorph/ui/AddEmployeeFrame.java
-/Users/heartvillegas/NetBeansProjects/MotorPH/src/main/java/com/mycompany/motorph/ui/ChangePasswordFrame.java
-/Users/heartvillegas/NetBeansProjects/MotorPH/src/main/java/com/mycompany/motorph/ui/DeleteEmployeeFrame.java
-/Users/heartvillegas/NetBeansProjects/MotorPH/src/main/java/com/mycompany/motorph/ui/EmployeeDashboardFrame.java
-/Users/heartvillegas/NetBeansProjects/MotorPH/src/main/java/com/mycompany/motorph/ui/EmployeeListFrame.java
-/Users/heartvillegas/NetBeansProjects/MotorPH/src/main/java/com/mycompany/motorph/ui/ForgotPasswordFrame.java
-/Users/heartvillegas/NetBeansProjects/MotorPH/src/main/java/com/mycompany/motorph/ui/GovernmentIDsFrame.java
-/Users/heartvillegas/NetBeansProjects/MotorPH/src/main/java/com/mycompany/motorph/ui/HRDashboardFrame.java
-/Users/heartvillegas/NetBeansProjects/MotorPH/src/main/java/com/mycompany/motorph/ui/HRPayslipFrame.java
-/Users/heartvillegas/NetBeansProjects/MotorPH/src/main/java/com/mycompany/motorph/ui/LoginFrame.java
-/Users/heartvillegas/NetBeansProjects/MotorPH/src/main/java/com/mycompany/motorph/ui/PayrollAnalyticsFrame.java
-/Users/heartvillegas/NetBeansProjects/MotorPH/src/main/java/com/mycompany/motorph/ui/PayrollDashboardFrame.java
-/Users/heartvillegas/NetBeansProjects/MotorPH/src/main/java/com/mycompany/motorph/ui/PayrollRecordsFrame.java
-/Users/heartvillegas/NetBeansProjects/MotorPH/src/main/java/com/mycompany/motorph/ui/PayslipFrame.java
-/Users/heartvillegas/NetBeansProjects/MotorPH/src/main/java/com/mycompany/motorph/ui/PayslipHistoryFrame.java
-/Users/heartvillegas/NetBeansProjects/MotorPH/src/main/java/com/mycompany/motorph/ui/UpdateEmployeeFrame.java
-/Users/heartvillegas/NetBeansProjects/MotorPH/src/main/java/com/mycompany/motorph/ui/ViewProfileFrame.java
+C:\Users\escar\Documents\Milestone2_OA ( Noeme )\src\main\java\com\mycompany\motorph\dao\AttendanceDAO.java
+C:\Users\escar\Documents\Milestone2_OA ( Noeme )\src\main\java\com\mycompany\motorph\dao\EmployeeDAO.java
+C:\Users\escar\Documents\Milestone2_OA ( Noeme )\src\main\java\com\mycompany\motorph\dao\GUI.java
+C:\Users\escar\Documents\Milestone2_OA ( Noeme )\src\main\java\com\mycompany\motorph\dao\LeaveDAO.java
+C:\Users\escar\Documents\Milestone2_OA ( Noeme )\src\main\java\com\mycompany\motorph\dao\PayrollDAO.java
+C:\Users\escar\Documents\Milestone2_OA ( Noeme )\src\main\java\com\mycompany\motorph\dao\UserDAO.java
+C:\Users\escar\Documents\Milestone2_OA ( Noeme )\src\main\java\com\mycompany\motorph\main\MotorPH.java
+C:\Users\escar\Documents\Milestone2_OA ( Noeme )\src\main\java\com\mycompany\motorph\model\AbstractDeduction.java
+C:\Users\escar\Documents\Milestone2_OA ( Noeme )\src\main\java\com\mycompany\motorph\model\Attendance.java
+C:\Users\escar\Documents\Milestone2_OA ( Noeme )\src\main\java\com\mycompany\motorph\model\Employee.java
+C:\Users\escar\Documents\Milestone2_OA ( Noeme )\src\main\java\com\mycompany\motorph\model\EmployeeUser.java
+C:\Users\escar\Documents\Milestone2_OA ( Noeme )\src\main\java\com\mycompany\motorph\model\HRUser.java
+C:\Users\escar\Documents\Milestone2_OA ( Noeme )\src\main\java\com\mycompany\motorph\model\LeaveRequest.java
+C:\Users\escar\Documents\Milestone2_OA ( Noeme )\src\main\java\com\mycompany\motorph\model\PagibigDeduction.java
+C:\Users\escar\Documents\Milestone2_OA ( Noeme )\src\main\java\com\mycompany\motorph\model\PayrollBreakdown.java
+C:\Users\escar\Documents\Milestone2_OA ( Noeme )\src\main\java\com\mycompany\motorph\model\PayrollComponent.java
+C:\Users\escar\Documents\Milestone2_OA ( Noeme )\src\main\java\com\mycompany\motorph\model\PayrollUser.java
+C:\Users\escar\Documents\Milestone2_OA ( Noeme )\src\main\java\com\mycompany\motorph\model\Payslip.java
+C:\Users\escar\Documents\Milestone2_OA ( Noeme )\src\main\java\com\mycompany\motorph\model\PhilHealthDeduction.java
+C:\Users\escar\Documents\Milestone2_OA ( Noeme )\src\main\java\com\mycompany\motorph\model\SSSDeduction.java
+C:\Users\escar\Documents\Milestone2_OA ( Noeme )\src\main\java\com\mycompany\motorph\model\SystemUser.java
+C:\Users\escar\Documents\Milestone2_OA ( Noeme )\src\main\java\com\mycompany\motorph\model\TaxDeduction.java
+C:\Users\escar\Documents\Milestone2_OA ( Noeme )\src\main\java\com\mycompany\motorph\model\User.java
+C:\Users\escar\Documents\Milestone2_OA ( Noeme )\src\main\java\com\mycompany\motorph\service\AuthService.java
+C:\Users\escar\Documents\Milestone2_OA ( Noeme )\src\main\java\com\mycompany\motorph\service\CSVExportService.java
+C:\Users\escar\Documents\Milestone2_OA ( Noeme )\src\main\java\com\mycompany\motorph\service\LeaveManager.java
+C:\Users\escar\Documents\Milestone2_OA ( Noeme )\src\main\java\com\mycompany\motorph\service\LeaveService.java
+C:\Users\escar\Documents\Milestone2_OA ( Noeme )\src\main\java\com\mycompany\motorph\service\PayrollCalculator.java
+C:\Users\escar\Documents\Milestone2_OA ( Noeme )\src\main\java\com\mycompany\motorph\service\PayrollReportService.java
+C:\Users\escar\Documents\Milestone2_OA ( Noeme )\src\main\java\com\mycompany\motorph\service\PayrollService.java
+C:\Users\escar\Documents\Milestone2_OA ( Noeme )\src\main\java\com\mycompany\motorph\service\PrintPayslipService.java
+C:\Users\escar\Documents\Milestone2_OA ( Noeme )\src\main\java\com\mycompany\motorph\service\SalaryCalculator.java
+C:\Users\escar\Documents\Milestone2_OA ( Noeme )\src\main\java\com\mycompany\motorph\ui\AddEmployeeFrame.java
+C:\Users\escar\Documents\Milestone2_OA ( Noeme )\src\main\java\com\mycompany\motorph\ui\ChangePasswordFrame.java
+C:\Users\escar\Documents\Milestone2_OA ( Noeme )\src\main\java\com\mycompany\motorph\ui\DeleteEmployeeFrame.java
+C:\Users\escar\Documents\Milestone2_OA ( Noeme )\src\main\java\com\mycompany\motorph\ui\EmployeeDashboardFrame.java
+C:\Users\escar\Documents\Milestone2_OA ( Noeme )\src\main\java\com\mycompany\motorph\ui\EmployeeListFrame.java
+C:\Users\escar\Documents\Milestone2_OA ( Noeme )\src\main\java\com\mycompany\motorph\ui\ForgotPasswordFrame.java
+C:\Users\escar\Documents\Milestone2_OA ( Noeme )\src\main\java\com\mycompany\motorph\ui\GovernmentIDsFrame.java
+C:\Users\escar\Documents\Milestone2_OA ( Noeme )\src\main\java\com\mycompany\motorph\ui\HRDashboardFrame.java
+C:\Users\escar\Documents\Milestone2_OA ( Noeme )\src\main\java\com\mycompany\motorph\ui\HRPayslipFrame.java
+C:\Users\escar\Documents\Milestone2_OA ( Noeme )\src\main\java\com\mycompany\motorph\ui\LoginFrame.java
+C:\Users\escar\Documents\Milestone2_OA ( Noeme )\src\main\java\com\mycompany\motorph\ui\PayrollAnalyticsFrame.java
+C:\Users\escar\Documents\Milestone2_OA ( Noeme )\src\main\java\com\mycompany\motorph\ui\PayrollDashboard.java
+C:\Users\escar\Documents\Milestone2_OA ( Noeme )\src\main\java\com\mycompany\motorph\ui\PayrollDashboardFrame.java
+C:\Users\escar\Documents\Milestone2_OA ( Noeme )\src\main\java\com\mycompany\motorph\ui\PayrollRecordsFrame.java
+C:\Users\escar\Documents\Milestone2_OA ( Noeme )\src\main\java\com\mycompany\motorph\ui\PayslipFrame.java
+C:\Users\escar\Documents\Milestone2_OA ( Noeme )\src\main\java\com\mycompany\motorph\ui\PayslipHistoryFrame.java
+C:\Users\escar\Documents\Milestone2_OA ( Noeme )\src\main\java\com\mycompany\motorph\ui\pnlBarChart.java
+C:\Users\escar\Documents\Milestone2_OA ( Noeme )\src\main\java\com\mycompany\motorph\ui\pnlExportPayrollCSV.java
+C:\Users\escar\Documents\Milestone2_OA ( Noeme )\src\main\java\com\mycompany\motorph\ui\pnlExportPayrollReport.java
+C:\Users\escar\Documents\Milestone2_OA ( Noeme )\src\main\java\com\mycompany\motorph\ui\pnlProcessPayroll.java
+C:\Users\escar\Documents\Milestone2_OA ( Noeme )\src\main\java\com\mycompany\motorph\ui\pnlViewPayrollRecords.java
+C:\Users\escar\Documents\Milestone2_OA ( Noeme )\src\main\java\com\mycompany\motorph\ui\UpdateEmployeeFrame.java
+C:\Users\escar\Documents\Milestone2_OA ( Noeme )\src\main\java\com\mycompany\motorph\ui\ViewProfileFrame.java
