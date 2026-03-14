@@ -1,38 +1,24 @@
 package com.mycompany.motorph.main;
 
-import com.mycompany.motorph.ui.LoginFrame;
-import javax.swing.*;
-import java.awt.*;
+import com.mycompany.motorph.ui.LoginForm;
+import com.mycompany.motorph.ui.BrandTheme;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+import javax.swing.SwingUtilities;
 
 public class MotorPH {
 
+    private static final Logger LOGGER = Logger.getLogger(MotorPH.class.getName());
+
     public static void main(String[] args) {
-
-        javax.swing.SwingUtilities.invokeLater(() -> {
-
+        SwingUtilities.invokeLater(() -> {
             try {
-
-                // MotorPH UI Theme
-                UIManager.put("Panel.background", Color.WHITE);
-
-                UIManager.put("Button.background", new Color(220,38,38));
-                UIManager.put("Button.foreground", Color.WHITE);
-                UIManager.put("Button.font", new Font("Segoe UI", Font.BOLD, 14));
-
-                UIManager.put("Label.font", new Font("Segoe UI", Font.PLAIN, 14));
-
-                UIManager.put("Table.font", new Font("Segoe UI", Font.PLAIN, 13));
-                UIManager.put("Table.rowHeight", 28);
-
+                BrandTheme.installGlobalTheme();
             } catch (Exception e) {
-                e.printStackTrace();
+                LOGGER.log(Level.WARNING, "Unable to install the application theme.", e);
             }
-
-            LoginFrame login = new LoginFrame();
+            LoginForm login = new LoginForm();
             login.setVisible(true);
-
         });
-
     }
-
 }

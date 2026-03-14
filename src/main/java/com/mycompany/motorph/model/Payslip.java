@@ -1,28 +1,21 @@
-/*
- * Click nbfs://nbhost/SystemFileSystem/Templates/Licenses/license-default.txt to change this license
- * Click nbfs://nbhost/SystemFileSystem/Templates/Classes/Class.java to edit this template
- */
 package com.mycompany.motorph.model;
 
-public class Payslip {
+public class Payslip extends PayrollComponent {
 
-    private int employeeNumber;
-    private String employeeName;
+    private final String periodStart;
+    private final String periodEnd;
 
-    private String periodStart;
-    private String periodEnd;
+    private final double basicSalary;
+    private final double riceSubsidy;
+    private final double phoneAllowance;
+    private final double clothingAllowance;
 
-    private double basicSalary;
-    private double riceSubsidy;
-    private double phoneAllowance;
-    private double clothingAllowance;
-
-    private double grossSalary;
-    private double sss;
-    private double philhealth;
-    private double pagibig;
-    private double tax;
-    private double netSalary;
+    private final double grossSalary;
+    private final double sss;
+    private final double philhealth;
+    private final double pagibig;
+    private final double tax;
+    private final double netSalary;
 
     public Payslip(
             int employeeNumber,
@@ -40,17 +33,13 @@ public class Payslip {
             double tax,
             double netSalary) {
 
-        this.employeeNumber = employeeNumber;
-        this.employeeName = employeeName;
-
+        super(employeeNumber, employeeName);
         this.periodStart = periodStart;
         this.periodEnd = periodEnd;
-
         this.basicSalary = basicSalary;
         this.riceSubsidy = riceSubsidy;
         this.phoneAllowance = phoneAllowance;
         this.clothingAllowance = clothingAllowance;
-
         this.grossSalary = grossSalary;
         this.sss = sss;
         this.philhealth = philhealth;
@@ -58,9 +47,6 @@ public class Payslip {
         this.tax = tax;
         this.netSalary = netSalary;
     }
-
-    public int getEmployeeNumber() { return employeeNumber; }
-    public String getEmployeeName() { return employeeName; }
 
     public String getPeriodStart() { return periodStart; }
     public String getPeriodEnd() { return periodEnd; }
@@ -76,4 +62,13 @@ public class Payslip {
     public double getPagibig() { return pagibig; }
     public double getTax() { return tax; }
     public double getNetSalary() { return netSalary; }
+
+    @Override
+    public void display() {
+        System.out.println(
+                getEmployeeNumber() + " | "
+                + getEmployeeName() + " | "
+                + periodStart + " to " + periodEnd + " | Net: " + netSalary
+        );
+    }
 }

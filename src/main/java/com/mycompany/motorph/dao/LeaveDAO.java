@@ -1,80 +1,143 @@
-/*
- * Click nbfs://nbhost/SystemFileSystem/Templates/Licenses/license-default.txt to change this license
- * Click nbfs://nbhost/SystemFileSystem/Templates/Classes/Class.java to edit this template
- */
 package com.mycompany.motorph.dao;
 
+import com.mycompany.motorph.model.LeaveInterface;
 import com.mycompany.motorph.model.LeaveRequest;
-
-import java.io.*;
+import java.io.BufferedReader;
+import java.io.BufferedWriter;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
-public class LeaveDAO {
+public class LeaveDAO implements LeaveInterface {
 
-    private final String filePath = "leave_requests.csv";
+    private static final String HEADER =
+            "employeeNumber,employeeName,leaveType,startDate,endDate,status,remarks";
+    private static final Logger LOGGER = Logger.getLogger(LeaveDAO.class.getName());
 
+    private final Path filePath = CsvFilePaths.LEAVE_REQUESTS;
+
+    @Override
     public List<LeaveRequest> loadLeaves() {
 
         List<LeaveRequest> requests = new ArrayList<>();
 
-        try (BufferedReader br = new BufferedReader(new FileReader(filePath))) {
+        if (!Files.exists(filePath)) {
+            return requests;
+        }
 
-            String line;
-            br.readLine();
+        try (BufferedReader br = Files.newBufferedReader(filePath)) {
+
+            String line = br.readLine();
+            if (line == null) {
+                return requests;
+            }
 
             while ((line = br.readLine()) != null) {
 
-                String[] data = line.split(",");
+                if (line.trim().isEmpty()) {
+                    continue;
+                }
 
-                int empNum = Integer.parseInt(data[0]);
-                String name = data[1];
-                String type = data[2];
-                String start = data[3];
-                String end = data[4];
-                String status = data[5];
+                String[] data = line.split(",(?=(?:[^\"]*\"[^\"]*\")*[^\"]*$)", -1);
+                if (data.length < 6) {
+                    continue;
+                }
 
-                LeaveRequest req = new LeaveRequest(empNum, name, type, start, end);
-
-                if (status.equals("APPROVED")) req.approve();
-                if (status.equals("REJECTED")) req.reject();
-
-                requests.add(req);
+                LeaveRequest request = new LeaveRequest(
+                        Integer.parseInt(data[0].trim()),
+                        clean(data[1]),
+                        clean(data[2]),
+                        clean(data[3]),
+                        clean(data[4]),
+                        data.length > 6 ? clean(data[6]) : ""
+                );
+                request.setStatus(clean(data[5]), data.length > 6 ? clean(data[6]) : "");
+                requests.add(request);
 
             }
 
         } catch (Exception e) {
-
-            System.out.println("No existing leave records.");
-
+            LOGGER.log(Level.WARNING, "Unable to load leave requests.", e);
         }
 
         return requests;
-
     }
 
+    @Override
     public void saveLeave(LeaveRequest leave) {
 
-        try (FileWriter fw = new FileWriter(filePath, true);
-             BufferedWriter bw = new BufferedWriter(fw)) {
-
-            bw.write(
-                    leave.getEmployeeNumber() + "," +
-                    leave.getEmployeeName() + "," +
-                    leave.getLeaveType() + "," +
-                    leave.getStartDate() + "," +
-                    leave.getEndDate() + "," +
-                    leave.getStatus()
-            );
-
-            bw.newLine();
-
-        } catch (Exception e) {
-
-            e.printStackTrace();
-
-        }
+        List<LeaveRequest> requests = loadLeaves();
+        requests.add(leave);
+        saveAllLeaves(requests);
 
     }
 
+    public void saveAllLeaves(List<LeaveRequest> requests) {
+
+        try {
+            Path parent = filePath.getParent();
+            if (parent != null) {
+                Files.createDirectories(parent);
+            }
+        } catch (Exception e) {
+            LOGGER.log(Level.WARNING, "Unable to prepare leave requests file.", e);
+            return;
+        }
+
+        try (BufferedWriter bw = Files.newBufferedWriter(
+                filePath,
+                StandardOpenOption.CREATE,
+                StandardOpenOption.TRUNCATE_EXISTING)) {
+
+            bw.write(HEADER);
+            bw.newLine();
+
+            for (LeaveRequest request : requests) {
+                bw.write(String.join(",",
+                        String.valueOf(request.getEmployeeNumber()),
+                        escapeCsv(request.getEmployeeName()),
+                        escapeCsv(request.getLeaveType()),
+                        request.getStartDate(),
+                        request.getEndDate(),
+                        request.getStatus(),
+                        escapeCsv(request.getStatusMessage())));
+                bw.newLine();
+            }
+
+        } catch (Exception e) {
+            LOGGER.log(Level.WARNING, "Unable to save leave requests.", e);
+        }
+    }
+
+    private String clean(String value) {
+
+        if (value == null) {
+            return "";
+        }
+
+        String cleaned = value.trim();
+        if (cleaned.startsWith("\"") && cleaned.endsWith("\"") && cleaned.length() >= 2) {
+            cleaned = cleaned.substring(1, cleaned.length() - 1);
+        }
+
+        return cleaned.replace("\"\"", "\"");
+    }
+
+    private String escapeCsv(String value) {
+
+        if (value == null) {
+            return "";
+        }
+
+        String cleaned = value.trim();
+        if (cleaned.contains(",") || cleaned.contains("\"")) {
+            return "\"" + cleaned.replace("\"", "\"\"") + "\"";
+        }
+
+        return cleaned;
+    }
 }

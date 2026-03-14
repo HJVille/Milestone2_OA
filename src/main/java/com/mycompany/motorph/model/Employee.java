@@ -1,12 +1,8 @@
-/*
- * Click nbfs://nbhost/SystemFileSystem/Templates/Licenses/license-default.txt to change this license
- * Click nbfs://nbhost/SystemFileSystem/Templates/Classes/Class.java to edit this template
- */
 package com.mycompany.motorph.model;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
-import java.util.Scanner;
 
 public class Employee {
 
@@ -33,7 +29,7 @@ public class Employee {
     private double grossSemiMonthlyRate;
     private double hourlyRate;
 
-    private List<Attendance> attendanceRecords;
+    private final List<Attendance> attendanceRecords;
     private double hoursWorked;
 
     public Employee(
@@ -74,30 +70,26 @@ public class Employee {
         validatePositive(grossSemiMonthlyRate, "Gross Semi Monthly Rate");
         validatePositive(hourlyRate, "Hourly Rate");
 
-        this.employeeNumber = employeeNumber;
-        this.lastName = lastName;
-        this.firstName = firstName;
-        this.birthDate = birthDate;
-        this.address = address;
-        this.phoneNumber = phoneNumber;
-
-        this.sssNumber = sssNumber;
-        this.philhealthNumber = philhealthNumber;
-        this.tinNumber = tinNumber;
-        this.pagibigNumber = pagibigNumber;
-
-        this.status = status;
-        this.position = position;
-        this.immediateSupervisor = immediateSupervisor;
-
-        this.basicSalary = basicSalary;
-        this.riceSubsidy = riceSubsidy;
-        this.phoneAllowance = phoneAllowance;
-        this.clothingAllowance = clothingAllowance;
-        this.grossSemiMonthlyRate = grossSemiMonthlyRate;
-        this.hourlyRate = hourlyRate;
-
         this.attendanceRecords = new ArrayList<>();
+        setEmployeeNumber(employeeNumber);
+        setLastName(lastName);
+        setFirstName(firstName);
+        setBirthDate(birthDate);
+        setAddress(address);
+        setPhone(phoneNumber);
+        setSss(sssNumber);
+        setPhilhealth(philhealthNumber);
+        setTin(tinNumber);
+        setPagibig(pagibigNumber);
+        setStatus(status);
+        setPosition(position);
+        setSupervisor(immediateSupervisor);
+        setBasicSalary(basicSalary);
+        setRiceSubsidy(riceSubsidy);
+        setPhoneAllowance(phoneAllowance);
+        setClothingAllowance(clothingAllowance);
+        setGrossSemiMonthlyRate(grossSemiMonthlyRate);
+        setHourlyRate(hourlyRate);
         this.hoursWorked = 0;
     }
 
@@ -184,7 +176,7 @@ public class Employee {
     }
 
     public List<Attendance> getAttendanceRecords() {
-        return attendanceRecords;
+        return Collections.unmodifiableList(attendanceRecords);
     }
 
     // ===== NEW GETTERS (FOR CRUD + DAO) =====
@@ -229,17 +221,112 @@ public class Employee {
         return immediateSupervisor;
     }
 
+    public void setEmployeeNumber(int employeeNumber) {
+        validateEmployeeNumber(employeeNumber);
+        this.employeeNumber = employeeNumber;
+    }
+
+    public void setLastName(String lastName) {
+        validateRequired(lastName, "Last Name");
+        this.lastName = lastName.trim();
+    }
+
+    public void setFirstName(String firstName) {
+        validateRequired(firstName, "First Name");
+        this.firstName = firstName.trim();
+    }
+
+    public void setBirthDate(String birthDate) {
+        this.birthDate = birthDate == null ? "" : birthDate.trim();
+    }
+
+    public void setAddress(String address) {
+        this.address = address == null ? "" : address.trim();
+    }
+
+    public void setPhone(String phoneNumber) {
+        validateRequired(phoneNumber, "Phone Number");
+        this.phoneNumber = phoneNumber.trim();
+    }
+
+    public void setSss(String sssNumber) {
+        validateGovernmentId(sssNumber, "SSS");
+        this.sssNumber = sssNumber.trim();
+    }
+
+    public void setPhilhealth(String philhealthNumber) {
+        validateGovernmentId(philhealthNumber, "PhilHealth");
+        this.philhealthNumber = philhealthNumber.trim();
+    }
+
+    public void setTin(String tinNumber) {
+        validateGovernmentId(tinNumber, "TIN");
+        this.tinNumber = tinNumber.trim();
+    }
+
+    public void setPagibig(String pagibigNumber) {
+        validateGovernmentId(pagibigNumber, "Pag-IBIG");
+        this.pagibigNumber = pagibigNumber.trim();
+    }
+
+    public void setStatus(String status) {
+        this.status = status == null ? "" : status.trim();
+    }
+
+    public void setPosition(String position) {
+        this.position = position == null ? "" : position.trim();
+    }
+
+    public void setSupervisor(String immediateSupervisor) {
+        this.immediateSupervisor = immediateSupervisor == null ? "" : immediateSupervisor.trim();
+    }
+
+    public void setBasicSalary(double basicSalary) {
+        validatePositive(basicSalary, "Basic Salary");
+        this.basicSalary = basicSalary;
+    }
+
+    public void setRiceSubsidy(double riceSubsidy) {
+        validatePositive(riceSubsidy, "Rice Subsidy");
+        this.riceSubsidy = riceSubsidy;
+    }
+
+    public void setPhoneAllowance(double phoneAllowance) {
+        validatePositive(phoneAllowance, "Phone Allowance");
+        this.phoneAllowance = phoneAllowance;
+    }
+
+    public void setClothingAllowance(double clothingAllowance) {
+        validatePositive(clothingAllowance, "Clothing Allowance");
+        this.clothingAllowance = clothingAllowance;
+    }
+
+    public void setGrossSemiMonthlyRate(double grossSemiMonthlyRate) {
+        validatePositive(grossSemiMonthlyRate, "Gross Semi Monthly Rate");
+        this.grossSemiMonthlyRate = grossSemiMonthlyRate;
+    }
+
+    public void setHourlyRate(double hourlyRate) {
+        validatePositive(hourlyRate, "Hourly Rate");
+        this.hourlyRate = hourlyRate;
+    }
+
     // ===== ATTENDANCE METHODS =====
 
     public void setHoursWorked(double hoursWorked) {
+        validatePositive(hoursWorked, "Hours Worked");
         this.hoursWorked = hoursWorked;
     }
 
     public void addAttendance(Attendance attendance) {
+        if (attendance == null) {
+            throw new IllegalArgumentException("Attendance cannot be null.");
+        }
         attendanceRecords.add(attendance);
     }
 
     public void addWorkedHours(double hours) {
+        validatePositive(hours, "Worked Hours");
         this.hoursWorked += hours;
     }
 
@@ -276,72 +363,4 @@ public class Employee {
         return h + "h " + m + "m";
     }
 
-    // ===== ATTENDANCE VIEW =====
-
-    public void viewAttendance() {
-
-        System.out.println("\n===== ATTENDANCE =====");
-
-        for (Attendance a : attendanceRecords) {
-
-            System.out.println(
-                    a.getDate()
-                    + " | IN: " + formatTime(a.getLogInTime())
-                    + " | OUT: " + formatTime(a.getLogOutTime())
-                    + " | HOURS: " + formatHours(a.getHoursWorked())
-            );
-
-        }
-
-        System.out.println("\nTotal Hours Worked: " + formatHours(hoursWorked));
-    }
-
-    // ===== PROFILE DISPLAY =====
-
-    public void displayDetails() {
-
-        Scanner scanner = new Scanner(System.in);
-
-        while (true) {
-
-            System.out.println("\n===== EMPLOYEE PROFILE =====");
-            System.out.println("Employee #: " + employeeNumber);
-            System.out.println("Name: " + getEmployeeName());
-            System.out.println("Birthday: " + birthDate);
-            System.out.println("Address: " + address);
-            System.out.println("Phone Number: " + phoneNumber);
-            System.out.println("Status: " + status);
-            System.out.println("Position: " + position);
-            System.out.println("Immediate Supervisor: " + immediateSupervisor);
-
-            System.out.println("\n1 View Government IDs");
-            System.out.println("2 Back");
-
-            System.out.print("Select option: ");
-            int choice = scanner.nextInt();
-
-            switch (choice) {
-
-                case 1:
-                    viewGovernmentIDs();
-                    break;
-
-                case 2:
-                    return;
-
-                default:
-                    System.out.println("Invalid option.");
-            }
-        }
-    }
-
-    private void viewGovernmentIDs() {
-
-        System.out.println("\n===== GOVERNMENT IDS =====");
-
-        System.out.println("SSS #: " + sssNumber);
-        System.out.println("Philhealth #: " + philhealthNumber);
-        System.out.println("TIN #: " + tinNumber);
-        System.out.println("Pag-ibig #: " + pagibigNumber);
-    }
 }

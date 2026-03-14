@@ -1,21 +1,17 @@
-/*
- * Click nbfs://nbhost/SystemFileSystem/Templates/Licenses/license-default.txt to change this license
- * Click nbfs://nbhost/SystemFileSystem/Templates/Classes/Class.java to edit this template
- */
 package com.mycompany.motorph.model;
 
 public abstract class SystemUser {
 
-    protected String username;
-    protected String password;
-    protected String role;
-    protected int employeeNumber;
+    private String username;
+    private String password;
+    private final String role;
+    private final int employeeNumber;
 
     public SystemUser(String username, String password, String role, int employeeNumber) {
-        this.username = username;
-        this.password = password;
-        this.role = role;
-        this.employeeNumber = employeeNumber;
+        setUsername(username);
+        setPassword(password);
+        this.role = requireText(role, "Role");
+        this.employeeNumber = requireNonNegative(employeeNumber, "Employee number");
     }
 
     public String getUsername() {
@@ -35,12 +31,26 @@ public abstract class SystemUser {
     }
 
     public void setPassword(String password) {
-        this.password = password;
+        this.password = requireText(password, "Password");
     }
 
     public void setUsername(String username) {
-        this.username = username;
+        this.username = requireText(username, "Username");
     }
 
     public abstract String getUserType();
+
+    protected final String requireText(String value, String fieldName) {
+        if (value == null || value.trim().isEmpty()) {
+            throw new IllegalArgumentException(fieldName + " cannot be empty.");
+        }
+        return value.trim();
+    }
+
+    protected final int requireNonNegative(int value, String fieldName) {
+        if (value < 0) {
+            throw new IllegalArgumentException(fieldName + " cannot be negative.");
+        }
+        return value;
+    }
 }
