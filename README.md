@@ -43,10 +43,4 @@ MotorPH is a Java Swing payroll and employee management system organized using t
 
 - `git@github.com:HJVille/ooa-oop-motorph-payroll.git`
 
-## Submission Documents
 
-- [milestone-2-implementation-package-filled.md](/Users/heartvillegas/NetBeansProjects/MotorPH/docs/milestone-2-implementation-package-filled.md)
-- [refactoring-plan.md](/Users/heartvillegas/NetBeansProjects/MotorPH/docs/refactoring-plan.md)
-- [smoke-test-checklist.md](/Users/heartvillegas/NetBeansProjects/MotorPH/docs/smoke-test-checklist.md)
-- [known-issues.md](/Users/heartvillegas/NetBeansProjects/MotorPH/docs/known-issues.md)
-- [team-contributions.md](/Users/heartvillegas/NetBeansProjects/MotorPH/docs/team-contributions.md)
