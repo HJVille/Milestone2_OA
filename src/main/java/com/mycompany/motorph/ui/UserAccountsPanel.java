@@ -1,9 +1,9 @@
 package com.mycompany.motorph.ui;
 
-import com.mycompany.motorph.dao.UserDAO;
 import com.mycompany.motorph.model.User;
 import com.mycompany.motorph.service.AccessControlService;
 import com.mycompany.motorph.service.NotificationService;
+import com.mycompany.motorph.service.UserAccountService;
 import java.awt.BorderLayout;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
@@ -27,7 +27,7 @@ import javax.swing.table.DefaultTableModel;
 
 public class UserAccountsPanel extends JPanel {
 
-    private final UserDAO userDAO = new UserDAO();
+    private final UserAccountService userAccountService = new UserAccountService();
     private final NotificationService notificationService = new NotificationService();
     private final AccessControlService accessControlService = new AccessControlService();
     private final User actorUser;
@@ -51,15 +51,14 @@ public class UserAccountsPanel extends JPanel {
 
     public UserAccountsPanel(User actorUser) {
         this.actorUser = actorUser;
-        setLayout(new BorderLayout(0, 14));
+        setLayout(new BorderLayout(0, 18));
         BrandTheme.styleSurface(this);
         setBorder(BorderFactory.createEmptyBorder(18, 18, 18, 18));
 
-        add(buildHeader(), BorderLayout.NORTH);
+        add(buildHeaderCard(), BorderLayout.NORTH);
         JScrollPane scrollPane = new JScrollPane(accountsTable);
         BrandTheme.styleScrollPane(scrollPane);
-        add(scrollPane, BorderLayout.CENTER);
-        add(summaryLabel, BorderLayout.SOUTH);
+        add(buildTableCard(scrollPane), BorderLayout.CENTER);
 
         accountsTable.setModel(new DefaultTableModel(new Object[][]{}, new String[]{
             "Username", "Role", "Employee Number"
@@ -97,6 +96,27 @@ public class UserAccountsPanel extends JPanel {
         reloadUsers();
     }
 
+    private JPanel buildHeaderCard() {
+        JPanel card = new JPanel(new BorderLayout());
+        BrandTheme.styleCardSurface(card);
+        card.add(buildHeader(), BorderLayout.CENTER);
+        return card;
+    }
+
+    private JPanel buildTableCard(JScrollPane scrollPane) {
+        JPanel card = new JPanel(new BorderLayout(0, 14));
+        BrandTheme.styleCardSurface(card);
+
+        JLabel sectionTitle = new JLabel("Account Directory");
+        sectionTitle.setFont(BrandTheme.BUTTON_FONT.deriveFont(Font.BOLD, 16f));
+        sectionTitle.setForeground(BrandTheme.PRIMARY_BLUE);
+
+        card.add(sectionTitle, BorderLayout.NORTH);
+        card.add(scrollPane, BorderLayout.CENTER);
+        card.add(summaryLabel, BorderLayout.SOUTH);
+        return card;
+    }
+
     private void applyRolePermissions() {
         if (actorUser == null) {
             return;
@@ -107,7 +127,7 @@ public class UserAccountsPanel extends JPanel {
     }
 
     public final void reloadUsers() {
-        users = userDAO.loadUsers();
+        users = userAccountService.loadUsers();
         applyFilter();
     }
 
@@ -118,7 +138,7 @@ public class UserAccountsPanel extends JPanel {
 
         JLabel title = new JLabel("User Accounts");
         title.setFont(BrandTheme.TITLE_FONT.deriveFont(Font.BOLD, 24f));
-        title.setForeground(BrandTheme.TEXT);
+        title.setForeground(BrandTheme.PRIMARY_BLUE);
         header.add(title, BorderLayout.NORTH);
 
         BrandTheme.styleSecondaryButton(btnSearch);
@@ -266,8 +286,7 @@ public class UserAccountsPanel extends JPanel {
             return;
         }
 
-        user.setPassword("emp" + user.getEmployeeNumber());
-        userDAO.saveUsers(users);
+        userAccountService.resetPasswordToDefault(user, users);
         notificationService.record(
                 actorUser,
                 "PASSWORD_RESET",
@@ -300,8 +319,7 @@ public class UserAccountsPanel extends JPanel {
             return;
         }
 
-        user.setPassword(newPassword.trim());
-        userDAO.saveUsers(users);
+        userAccountService.updatePassword(user, users, newPassword.trim());
         notificationService.record(
                 actorUser,
                 "PASSWORD_SET",

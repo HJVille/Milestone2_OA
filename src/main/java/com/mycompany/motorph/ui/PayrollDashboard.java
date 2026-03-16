@@ -1,6 +1,5 @@
 package com.mycompany.motorph.ui;
 
-import com.mycompany.motorph.dao.PayrollDAO;
 import com.mycompany.motorph.model.EmployeePayrollSummary;
 import com.mycompany.motorph.model.PayrollPeriodOption;
 import com.mycompany.motorph.model.Payslip;
@@ -8,10 +7,16 @@ import com.mycompany.motorph.model.User;
 import com.mycompany.motorph.service.AppClock;
 import com.mycompany.motorph.service.EmployeePortalService;
 import com.mycompany.motorph.service.NotificationService;
+import com.mycompany.motorph.service.PayrollRecordService;
 import java.awt.BorderLayout;
+import java.awt.CardLayout;
+import java.awt.Color;
 import java.awt.Dimension;
 import java.awt.Font;
-import java.awt.CardLayout;
+import java.awt.Graphics;
+import java.awt.Graphics2D;
+import java.awt.GridLayout;
+import java.awt.RenderingHints;
 import java.text.DecimalFormat;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
@@ -43,7 +48,7 @@ public class PayrollDashboard extends JPanel {
 
     private final User user;
     private final EmployeePortalService employeePortalService = new EmployeePortalService();
-    private final PayrollDAO payrollDAO = new PayrollDAO();
+    private final PayrollRecordService payrollRecordService = new PayrollRecordService();
     private final NotificationService notificationService = new NotificationService();
     private final int displayDataYear;
     private final List<PayrollPeriodOption> availablePeriods;
@@ -61,6 +66,7 @@ public class PayrollDashboard extends JPanel {
     }
 
     public PayrollDashboard(User user) {
+        BrandTheme.installGlobalTheme();
         this.user = user;
         List<PayrollPeriodOption> sourcedPeriods = employeePortalService.getAvailablePayrollPeriods();
         this.displayDataYear = resolveDisplayDataYear(sourcedPeriods);
@@ -69,7 +75,7 @@ public class PayrollDashboard extends JPanel {
         this.payrollRecordsPanel = new PayrollRecordsPanel();
         setLayout(new BorderLayout(0, 16));
         BrandTheme.styleSurface(this);
-        setBorder(BorderFactory.createEmptyBorder(18, 18, 18, 18));
+        setBorder(BorderFactory.createEmptyBorder(12, 12, 12, 12));
 
         add(buildNavigation(), BorderLayout.WEST);
         add(buildMainShell(), BorderLayout.CENTER);
@@ -82,17 +88,17 @@ public class PayrollDashboard extends JPanel {
         navigation.setBackground(BrandTheme.GRAPHITE);
         navigation.setBorder(BorderFactory.createCompoundBorder(
                 BorderFactory.createMatteBorder(0, 0, 0, 1, BrandTheme.LAVENDER),
-                BorderFactory.createEmptyBorder(18, 14, 18, 14)
+                BorderFactory.createEmptyBorder(14, 12, 14, 12)
         ));
-        navigation.setPreferredSize(new Dimension(228, 0));
+        navigation.setPreferredSize(new Dimension(202, 0));
 
         JPanel menuButtons = new JPanel();
         menuButtons.setOpaque(false);
         menuButtons.setLayout(new BoxLayout(menuButtons, BoxLayout.Y_AXIS));
 
-        javax.swing.JLabel menuLabel = new javax.swing.JLabel("Finance Menu");
-        menuLabel.setFont(BrandTheme.SUBTITLE_FONT.deriveFont(Font.BOLD, 12f));
-        menuLabel.setForeground(BrandTheme.MUTED);
+        javax.swing.JLabel menuLabel = new javax.swing.JLabel("Finance Tools");
+        menuLabel.setFont(BrandTheme.SUBTITLE_FONT.deriveFont(Font.BOLD, 11f));
+        menuLabel.setForeground(BrandTheme.MUTED_INVERSE);
         menuLabel.setAlignmentX(LEFT_ALIGNMENT);
 
         btnProcessPayroll = createNavigationButton("Process Payroll");
@@ -102,7 +108,6 @@ public class PayrollDashboard extends JPanel {
         btnLogout.setText("Logout");
 
         btnProcessPayroll.addActionListener(evt -> {
-            processPayrollPanel.reloadPeriods();
             processPayrollPanel.refreshPreview();
             contentCards.show(contentPanel, "process");
         });
@@ -137,10 +142,10 @@ public class PayrollDashboard extends JPanel {
     private void configureNavigationButton(JButton button) {
         BrandTheme.styleNavigationButton(button);
         button.setAlignmentX(LEFT_ALIGNMENT);
-        button.setFont(BrandTheme.BUTTON_FONT);
-        button.setMinimumSize(new Dimension(188, 40));
-        button.setPreferredSize(new Dimension(188, 40));
-        button.setMaximumSize(new Dimension(Integer.MAX_VALUE, 40));
+        button.setFont(BrandTheme.BUTTON_FONT.deriveFont(Font.BOLD, 13f));
+        button.setMinimumSize(new Dimension(170, 36));
+        button.setPreferredSize(new Dimension(170, 36));
+        button.setMaximumSize(new Dimension(Integer.MAX_VALUE, 36));
     }
 
     private JPanel buildMainShell() {
@@ -150,7 +155,7 @@ public class PayrollDashboard extends JPanel {
 
         contentPanel = new JPanel(contentCards);
         contentPanel.setOpaque(false);
-        contentPanel.setBorder(BorderFactory.createEmptyBorder(14, 14, 14, 14));
+        contentPanel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
         contentPanel.add(processPayrollPanel, "process");
         contentPanel.add(payrollRecordsPanel, "records");
         contentCards.show(contentPanel, "process");
@@ -159,7 +164,6 @@ public class PayrollDashboard extends JPanel {
     }
 
     private void refreshAll() {
-        processPayrollPanel.reloadPeriods();
         processPayrollPanel.refreshPreview();
         payrollRecordsPanel.reloadRows();
     }
@@ -263,6 +267,17 @@ public class PayrollDashboard extends JPanel {
         return availablePeriods.get(0).getEndDate();
     }
 
+    private static String formatCompactAmount(double amount) {
+        double absolute = Math.abs(amount);
+        if (absolute >= 1_000_000d) {
+            return "PHP " + new DecimalFormat("0.0").format(amount / 1_000_000d) + "M";
+        }
+        if (absolute >= 1_000d) {
+            return "PHP " + new DecimalFormat("0.0").format(amount / 1_000d) + "K";
+        }
+        return MONEY.format(amount);
+    }
+
     private void setControlWidth(DatePickerField datePickerField, int width) {
         Dimension size = new Dimension(width, 34);
         datePickerField.setPreferredSize(size);
@@ -275,17 +290,50 @@ public class PayrollDashboard extends JPanel {
         private final DatePickerField periodSelector = new DatePickerField();
         private final JTable previewTable = new JTable();
         private final JLabel summaryLabel = new JLabel(" ");
+        private final MetricCard employeesCard = new MetricCard(
+                "Employees Covered",
+                "0",
+                "Run a preview to populate this KPI.",
+                BrandTheme.PRIMARY_BLUE
+        );
+        private final MetricCard grossPayrollCard = new MetricCard(
+                "Gross Payroll",
+                MONEY.format(0),
+                "Total compensation before deductions.",
+                BrandTheme.GOLD
+        );
+        private final MetricCard deductionsCard = new MetricCard(
+                "Total Deductions",
+                MONEY.format(0),
+                "Taxes and government contributions.",
+                BrandTheme.MOTORPH_RED
+        );
+        private final MetricCard netPayrollCard = new MetricCard(
+                "Net Payroll",
+                MONEY.format(0),
+                "Projected amount for release.",
+                BrandTheme.TEAL
+        );
+        private final AnalyticsChartCard compositionChart = new AnalyticsChartCard(
+                "Payroll Composition",
+                "Distribution of payroll totals for the selected processing run."
+        );
+        private final JLabel selectedPeriodValue = createInsightValueLabel();
+        private final JLabel coverageWindowValue = createInsightValueLabel();
+        private final JLabel runTypeValue = createInsightValueLabel();
+        private final JLabel statusValue = createInsightValueLabel();
+        private final JPanel snapshotCard = buildSnapshotCard();
 
         ProcessPayrollPanel() {
-            setLayout(new BorderLayout(0, 14));
+            setLayout(new BorderLayout(0, 12));
             BrandTheme.styleSurface(this);
 
             JPanel top = new JPanel(new BorderLayout(12, 12));
             top.setOpaque(false);
 
             JLabel title = new JLabel("Process Payroll");
-            title.setFont(BrandTheme.TITLE_FONT.deriveFont(Font.BOLD, 24f));
-            title.setForeground(BrandTheme.TEXT);
+            title.setFont(BrandTheme.TITLE_FONT.deriveFont(Font.BOLD, 18f));
+            title.setForeground(BrandTheme.TEXT_DARK);
             top.add(title, BorderLayout.WEST);
 
             JPanel controls = new JPanel();
@@ -293,8 +341,8 @@ public class PayrollDashboard extends JPanel {
             controls.setLayout(new BoxLayout(controls, BoxLayout.X_AXIS));
 
             JLabel selectorLabel = new JLabel("Payroll Period");
-            selectorLabel.setFont(BrandTheme.BUTTON_FONT.deriveFont(Font.BOLD, 15f));
-            selectorLabel.setForeground(BrandTheme.TEXT);
+            selectorLabel.setFont(BrandTheme.BUTTON_FONT.deriveFont(Font.BOLD, 12f));
+            selectorLabel.setForeground(BrandTheme.TEXT_DARK);
 
             JButton btnPreview = new JButton("Preview");
             JButton btnProcess = new JButton("Process & Save");
@@ -331,14 +379,125 @@ public class PayrollDashboard extends JPanel {
             summaryLabel.setFont(BrandTheme.BODY_FONT.deriveFont(15f));
             summaryLabel.setForeground(BrandTheme.MUTED);
 
-            add(top, BorderLayout.NORTH);
+            JPanel north = new JPanel(new BorderLayout(0, 16));
+            north.setOpaque(false);
+            north.add(top, BorderLayout.NORTH);
+            north.add(buildAnalyticsDeck(), BorderLayout.CENTER);
+
+            add(north, BorderLayout.NORTH);
             JScrollPane scrollPane = new JScrollPane(previewTable);
             BrandTheme.styleScrollPane(scrollPane);
             add(scrollPane, BorderLayout.CENTER);
             add(summaryLabel, BorderLayout.SOUTH);
+
+            resetPreviewInsights("Awaiting payroll preview.");
         }
 
-        void reloadPeriods() {
+        private JPanel buildAnalyticsDeck() {
+            JPanel deck = new JPanel();
+            deck.setOpaque(false);
+            deck.setLayout(new BoxLayout(deck, BoxLayout.Y_AXIS));
+
+            JPanel metricGrid = new JPanel(new GridLayout(1, 4, 10, 10));
+            metricGrid.setOpaque(false);
+            metricGrid.add(employeesCard);
+            metricGrid.add(grossPayrollCard);
+            metricGrid.add(deductionsCard);
+            metricGrid.add(netPayrollCard);
+
+            JPanel insightGrid = new JPanel(new GridLayout(1, 2, 10, 10));
+            insightGrid.setOpaque(false);
+            insightGrid.add(compositionChart);
+            insightGrid.add(snapshotCard);
+
+            deck.add(metricGrid);
+            deck.add(Box.createVerticalStrut(12));
+            deck.add(insightGrid);
+            return deck;
+        }
+
+        private JPanel buildSnapshotCard() {
+            JPanel card = new JPanel(new BorderLayout(0, 16));
+            BrandTheme.styleCardSurface(card);
+
+            JLabel title = new JLabel("Processing Snapshot");
+            title.setFont(BrandTheme.BUTTON_FONT.deriveFont(Font.BOLD, 16f));
+            title.setForeground(BrandTheme.TEXT);
+
+            JPanel grid = new JPanel(new GridLayout(2, 2, 14, 14));
+            grid.setOpaque(false);
+            grid.add(buildInsightBlock("Selected Period", selectedPeriodValue));
+            grid.add(buildInsightBlock("Coverage Window", coverageWindowValue));
+            grid.add(buildInsightBlock("Run Type", runTypeValue));
+            grid.add(buildInsightBlock("Status", statusValue));
+
+            card.add(title, BorderLayout.NORTH);
+            card.add(grid, BorderLayout.CENTER);
+            return card;
+        }
+
+        private JPanel buildInsightBlock(String labelText, JLabel valueLabel) {
+            JPanel block = new JPanel();
+            block.setOpaque(false);
+            block.setLayout(new BoxLayout(block, BoxLayout.Y_AXIS));
+
+            JLabel label = new JLabel(labelText);
+            label.setFont(BrandTheme.SUBTITLE_FONT.deriveFont(Font.BOLD, 12f));
+            label.setForeground(BrandTheme.MUTED);
+
+            block.add(label);
+            block.add(Box.createVerticalStrut(6));
+            block.add(valueLabel);
+            return block;
+        }
+
+        private JLabel createInsightValueLabel() {
+            JLabel label = new JLabel("Not available");
+            label.setFont(BrandTheme.BUTTON_FONT.deriveFont(Font.BOLD, 15f));
+            label.setForeground(BrandTheme.TEXT);
+            return label;
+        }
+
+        private void resetPreviewInsights(String statusText) {
+            employeesCard.setValue("0");
+            employeesCard.setDetail("Run a preview to populate this KPI.");
+            grossPayrollCard.setValue(MONEY.format(0));
+            grossPayrollCard.setDetail("Total compensation before deductions.");
+            deductionsCard.setValue(MONEY.format(0));
+            deductionsCard.setDetail("Taxes and government contributions.");
+            netPayrollCard.setValue(MONEY.format(0));
+            netPayrollCard.setDetail("Projected amount for release.");
+            selectedPeriodValue.setText("No period selected");
+            coverageWindowValue.setText("Select a payroll period");
+            runTypeValue.setText(displayDataYear + " payroll cycle");
+            statusValue.setText(statusText);
+            compositionChart.clear("Preview payroll to render the chart.");
+        }
+
+        private void updatePreviewInsights(PayrollPeriodOption selectedPeriod,
+                                           int employeeCount,
+                                           double totalGross,
+                                           double totalDeductions,
+                                           double totalNet) {
+            employeesCard.setValue(String.valueOf(employeeCount));
+            employeesCard.setDetail(employeeCount == 0
+                    ? "No employee records are ready for processing."
+                    : employeeCount + (employeeCount == 1 ? " employee in the selected run." : " employees in the selected run."));
+            grossPayrollCard.setValue(MONEY.format(totalGross));
+            deductionsCard.setValue(MONEY.format(totalDeductions));
+            netPayrollCard.setValue(MONEY.format(totalNet));
+            selectedPeriodValue.setText(selectedPeriod.getLabel());
+            coverageWindowValue.setText(PERIOD_DATE.format(selectedPeriod.getStartDate())
+                    + " - " + PERIOD_DATE.format(selectedPeriod.getEndDate()));
+            runTypeValue.setText(selectedPeriod.getType() == PayrollPeriodOption.Type.MONTHLY
+                    ? "Monthly payroll"
+                    : "Semi-monthly payroll");
+            statusValue.setText(employeeCount == 0 ? "No preview rows found" : "Ready to process");
+            compositionChart.setSeries(
+                    new String[]{"Gross Payroll", "Deductions", "Net Payroll"},
+                    new double[]{totalGross, totalDeductions, totalNet},
+                    new Color[]{BrandTheme.PRIMARY_BLUE, BrandTheme.MOTORPH_RED, BrandTheme.TEAL}
+            );
         }
 
         void refreshPreview() {
@@ -349,6 +508,7 @@ public class PayrollDashboard extends JPanel {
 
             if (selectedPeriod == null) {
                 summaryLabel.setText("No attendance-backed payroll periods available.");
+                resetPreviewInsights("No payroll periods are available.");
                 return;
             }
 
@@ -378,6 +538,8 @@ public class PayrollDashboard extends JPanel {
                 totalDeductions += summary.getTotalDeductions();
             }
 
+            updatePreviewInsights(selectedPeriod, summaries.size(), totalGross, totalDeductions, totalNet);
+
             summaryLabel.setText(
                     "Previewing " + summaries.size()
                     + " employees for " + formatPeriod(selectedPeriod)
@@ -401,7 +563,7 @@ public class PayrollDashboard extends JPanel {
                 return;
             }
 
-            payrollDAO.savePayrolls(payslips);
+            payrollRecordService.savePayrolls(payslips);
             notificationService.record(
                     user,
                     "PAYROLL_PROCESSED",
@@ -414,6 +576,194 @@ public class PayrollDashboard extends JPanel {
                     "Payroll Saved",
                     JOptionPane.INFORMATION_MESSAGE
             );
+        }
+    }
+
+    private static final class MetricCard extends JPanel {
+
+        private final JLabel valueLabel = new JLabel();
+        private final JLabel detailLabel = new JLabel();
+
+        MetricCard(String titleText, String valueText, String detailText, Color accent) {
+            setLayout(new BoxLayout(this, BoxLayout.Y_AXIS));
+            setOpaque(true);
+            setBackground(BrandTheme.PANEL_BG);
+            setBorder(BorderFactory.createCompoundBorder(
+                    BorderFactory.createLineBorder(BrandTheme.BORDER, 1),
+                    BorderFactory.createCompoundBorder(
+                            BorderFactory.createMatteBorder(0, 4, 0, 0, accent),
+                            BorderFactory.createEmptyBorder(14, 14, 14, 14)
+                    )
+            ));
+
+            JLabel titleLabel = new JLabel(titleText);
+            titleLabel.setFont(BrandTheme.SUBTITLE_FONT.deriveFont(Font.BOLD, 12f));
+            titleLabel.setForeground(BrandTheme.MUTED);
+            titleLabel.setAlignmentX(LEFT_ALIGNMENT);
+
+            valueLabel.setFont(BrandTheme.TITLE_FONT.deriveFont(Font.BOLD, 20f));
+            valueLabel.setForeground(accent);
+            valueLabel.setAlignmentX(LEFT_ALIGNMENT);
+
+            detailLabel.setFont(BrandTheme.BODY_FONT.deriveFont(12f));
+            detailLabel.setForeground(BrandTheme.MUTED);
+            detailLabel.setAlignmentX(LEFT_ALIGNMENT);
+
+            add(titleLabel);
+            add(Box.createVerticalStrut(8));
+            add(valueLabel);
+            add(Box.createVerticalStrut(6));
+            add(detailLabel);
+
+            setValue(valueText);
+            setDetail(detailText);
+        }
+
+        void setValue(String valueText) {
+            valueLabel.setText(valueText);
+        }
+
+        void setDetail(String detailText) {
+            detailLabel.setText("<html><body style='width:160px'>" + detailText + "</body></html>");
+        }
+    }
+
+    private static final class AnalyticsChartCard extends JPanel {
+
+        private final HorizontalBarChartPanel chartPanel = new HorizontalBarChartPanel();
+
+        AnalyticsChartCard(String titleText, String subtitleText) {
+            setLayout(new BorderLayout(0, 12));
+            BrandTheme.styleCardSurface(this);
+
+            JPanel header = new JPanel();
+            header.setOpaque(false);
+            header.setLayout(new BoxLayout(header, BoxLayout.Y_AXIS));
+
+            JLabel titleLabel = new JLabel(titleText);
+            titleLabel.setFont(BrandTheme.BUTTON_FONT.deriveFont(Font.BOLD, 14f));
+            titleLabel.setForeground(BrandTheme.TEXT);
+
+            JLabel subtitleLabel = new JLabel("<html>" + subtitleText + "</html>");
+            subtitleLabel.setFont(BrandTheme.BODY_FONT.deriveFont(12f));
+            subtitleLabel.setForeground(BrandTheme.MUTED);
+
+            header.add(titleLabel);
+            header.add(Box.createVerticalStrut(6));
+            header.add(subtitleLabel);
+
+            add(header, BorderLayout.NORTH);
+            add(chartPanel, BorderLayout.CENTER);
+        }
+
+        void setSeries(String[] labels, double[] values, Color[] colors) {
+            chartPanel.setSeries(labels, values, colors);
+        }
+
+        void clear(String message) {
+            chartPanel.clear(message);
+        }
+    }
+
+    private static final class HorizontalBarChartPanel extends JPanel {
+
+        private String[] labels = new String[0];
+        private double[] values = new double[0];
+        private Color[] colors = new Color[0];
+        private String emptyMessage = "No chart data available.";
+
+        HorizontalBarChartPanel() {
+            setOpaque(false);
+            setPreferredSize(new Dimension(0, 182));
+            setMinimumSize(new Dimension(0, 182));
+        }
+
+        void setSeries(String[] labels, double[] values, Color[] colors) {
+            this.labels = labels == null ? new String[0] : labels.clone();
+            this.values = values == null ? new double[0] : values.clone();
+            this.colors = colors == null ? new Color[0] : colors.clone();
+            this.emptyMessage = "No chart data available.";
+            repaint();
+        }
+
+        void clear(String message) {
+            this.labels = new String[0];
+            this.values = new double[0];
+            this.colors = new Color[0];
+            this.emptyMessage = message;
+            repaint();
+        }
+
+        @Override
+        protected void paintComponent(Graphics graphics) {
+            super.paintComponent(graphics);
+
+            Graphics2D g2 = (Graphics2D) graphics.create();
+            g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+            g2.setFont(BrandTheme.BODY_FONT.deriveFont(12f));
+
+            if (values.length == 0) {
+                g2.setColor(BrandTheme.MUTED);
+                drawCenteredString(g2, emptyMessage, getWidth(), getHeight());
+                g2.dispose();
+                return;
+            }
+
+            double maxValue = 0;
+            for (double value : values) {
+                if (value > maxValue) {
+                    maxValue = value;
+                }
+            }
+
+            if (maxValue <= 0) {
+                g2.setColor(BrandTheme.MUTED);
+                drawCenteredString(g2, emptyMessage, getWidth(), getHeight());
+                g2.dispose();
+                return;
+            }
+
+            int width = getWidth();
+            int contentWidth = Math.max(140, width - 40);
+            int rowHeight = Math.max(42, (getHeight() - 20) / Math.max(1, values.length));
+            int barHeight = 10;
+            int y = 14;
+
+            for (int index = 0; index < values.length; index++) {
+                String label = index < labels.length ? labels[index] : "Series " + (index + 1);
+                Color color = index < colors.length ? colors[index] : BrandTheme.CHART_PALETTE[index % BrandTheme.CHART_PALETTE.length];
+                String valueText = formatCompactAmount(values[index]);
+
+                g2.setColor(BrandTheme.MUTED);
+                g2.setFont(BrandTheme.SUBTITLE_FONT.deriveFont(Font.BOLD, 12f));
+                g2.drawString(label, 4, y + 10);
+
+                g2.setColor(BrandTheme.TEXT);
+                g2.setFont(BrandTheme.BODY_FONT.deriveFont(12f));
+                int valueWidth = g2.getFontMetrics().stringWidth(valueText);
+                g2.drawString(valueText, width - valueWidth - 4, y + 10);
+
+                int barY = y + 18;
+                g2.setColor(BrandTheme.TABLE_ALT);
+                g2.fillRoundRect(4, barY, contentWidth, barHeight, 10, 10);
+
+                int barWidth = (int) Math.round(contentWidth * (values[index] / maxValue));
+                if (barWidth > 0) {
+                    g2.setColor(color);
+                    g2.fillRoundRect(4, barY, Math.max(8, barWidth), barHeight, 10, 10);
+                }
+
+                y += rowHeight;
+            }
+
+            g2.dispose();
+        }
+
+        private void drawCenteredString(Graphics2D g2, String text, int width, int height) {
+            int textWidth = g2.getFontMetrics().stringWidth(text);
+            int x = Math.max(0, (width - textWidth) / 2);
+            int y = Math.max(g2.getFontMetrics().getAscent(), height / 2);
+            g2.drawString(text, x, y);
         }
     }
 
@@ -531,7 +881,7 @@ public class PayrollDashboard extends JPanel {
         void reloadRows() {
             Set<String> allowedPeriods = buildAllowedPeriodKeys();
             allRows = new ArrayList<>();
-            for (String[] row : payrollDAO.getPayrollHistory(0)) {
+            for (String[] row : payrollRecordService.getPayrollHistory()) {
                 if (row.length < 14) {
                     continue;
                 }

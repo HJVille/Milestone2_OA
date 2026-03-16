@@ -16,18 +16,26 @@ public class NotificationDAO {
 
     private static final String HEADER = "timestamp,actor,role,action,details,isRead";
     private static final Logger LOGGER = Logger.getLogger(NotificationDAO.class.getName());
+    private final Path notificationPath;
+
+    public NotificationDAO() {
+        this(CsvFilePaths.NOTIFICATIONS);
+    }
+
+    public NotificationDAO(Path notificationPath) {
+        this.notificationPath = notificationPath;
+    }
 
     public List<NotificationEntry> loadAll() {
         List<NotificationEntry> notifications = new ArrayList<>();
-        Path path = CsvFilePaths.NOTIFICATIONS;
 
-        if (!Files.exists(path)) {
+        if (!Files.exists(notificationPath)) {
             return notifications;
         }
 
         try {
             boolean firstLine = true;
-            for (String line : Files.readAllLines(path)) {
+            for (String line : Files.readAllLines(notificationPath)) {
                 if (firstLine) {
                     firstLine = false;
                     continue;
@@ -60,16 +68,14 @@ public class NotificationDAO {
     }
 
     public void append(NotificationEntry notification) {
-        Path path = CsvFilePaths.NOTIFICATIONS;
-
         try {
-            if (path.getParent() != null) {
-                Files.createDirectories(path.getParent());
+            if (notificationPath.getParent() != null) {
+                Files.createDirectories(notificationPath.getParent());
             }
 
-            boolean fileExists = Files.exists(path);
+            boolean fileExists = Files.exists(notificationPath);
             try (BufferedWriter writer = Files.newBufferedWriter(
-                    path,
+                    notificationPath,
                     StandardOpenOption.CREATE,
                     StandardOpenOption.APPEND)) {
 
@@ -87,15 +93,13 @@ public class NotificationDAO {
     }
 
     public void saveAll(List<NotificationEntry> notifications) {
-        Path path = CsvFilePaths.NOTIFICATIONS;
-
         try {
-            if (path.getParent() != null) {
-                Files.createDirectories(path.getParent());
+            if (notificationPath.getParent() != null) {
+                Files.createDirectories(notificationPath.getParent());
             }
 
             try (BufferedWriter writer = Files.newBufferedWriter(
-                    path,
+                    notificationPath,
                     StandardOpenOption.CREATE,
                     StandardOpenOption.TRUNCATE_EXISTING)) {
 

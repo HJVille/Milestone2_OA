@@ -1,16 +1,16 @@
 package com.mycompany.motorph.ui;
 
-import com.mycompany.motorph.dao.CsvFilePaths;
-import com.mycompany.motorph.dao.EmployeeDAO;
 import com.mycompany.motorph.model.Employee;
 import com.mycompany.motorph.model.User;
 import com.mycompany.motorph.service.AccessControlService;
+import com.mycompany.motorph.service.EmployeeManagementService;
 import com.mycompany.motorph.service.EmployeeValidationService;
 import com.mycompany.motorph.service.NotificationService;
 import java.awt.BorderLayout;
 import java.awt.Dialog;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
+import java.awt.Font;
 import java.awt.event.ComponentAdapter;
 import java.awt.event.ComponentEvent;
 import java.awt.Window;
@@ -21,6 +21,7 @@ import javax.swing.JDialog;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JOptionPane;
+import javax.swing.JScrollPane;
 import javax.swing.JTable;
 import javax.swing.SwingUtilities;
 import javax.swing.table.DefaultTableModel;
@@ -31,7 +32,7 @@ public class pnlEmployees extends javax.swing.JPanel {
             "Employee Name", "Employee Number"
     };
 
-    private final EmployeeDAO employeeDAO = new EmployeeDAO();
+    private final EmployeeManagementService employeeManagementService = new EmployeeManagementService();
     private final EmployeeValidationService validationService = new EmployeeValidationService();
     private final NotificationService notificationService = new NotificationService();
     private final AccessControlService accessControlService = new AccessControlService();
@@ -100,7 +101,6 @@ public class pnlEmployees extends javax.swing.JPanel {
     // <editor-fold defaultstate="collapsed" desc="Generated Code">//GEN-BEGIN:initComponents
     private void initComponents() {
 
-        lblEmployee = new javax.swing.JLabel();
         scrollEmployee = new javax.swing.JScrollPane();
         tblEmployee = new javax.swing.JTable();
         btnAddEmployee = new javax.swing.JButton();
@@ -110,10 +110,6 @@ public class pnlEmployees extends javax.swing.JPanel {
         btnSearchEmployee = new javax.swing.JButton();
         btnGovtIDInfo = new javax.swing.JButton();
         lblEmployees = new javax.swing.JLabel();
-
-        lblEmployee.setFont(new java.awt.Font("Segoe UI", 1, 18)); // NOI18N
-        lblEmployee.setForeground(new java.awt.Color(0, 51, 102));
-        lblEmployee.setText("Employee");
 
         setBackground(new java.awt.Color(255, 255, 255));
 
@@ -202,7 +198,7 @@ public class pnlEmployees extends javax.swing.JPanel {
     }// </editor-fold>//GEN-END:initComponents
 
     public final void reloadEmployees() {
-        employees = employeeDAO.loadEmployees(CsvFilePaths.EMPLOYEES.toString());
+        employees = employeeManagementService.loadEmployees();
         populateTable(employees);
     }
 
@@ -227,7 +223,7 @@ public class pnlEmployees extends javax.swing.JPanel {
         configureResponsiveColumns();
 
         removeAll();
-        setLayout(new BorderLayout(0, 16));
+        setLayout(new BorderLayout(0, 18));
 
         employeeHeaderPanel = new JPanel(new BorderLayout(0, 10));
         employeeHeaderPanel.setOpaque(false);
@@ -245,9 +241,23 @@ public class pnlEmployees extends javax.swing.JPanel {
         footer.add(btnUpdateEmployee);
         footer.add(btnDeleteEmployee);
 
-        add(employeeHeaderPanel, BorderLayout.NORTH);
-        add(scrollEmployee, BorderLayout.CENTER);
-        add(footer, BorderLayout.SOUTH);
+        JPanel tableCard = new JPanel(new BorderLayout(0, 14));
+        BrandTheme.styleCardSurface(tableCard);
+        tableCard.add(createSectionLabel("Employee Directory"), BorderLayout.NORTH);
+        tableCard.add(scrollEmployee, BorderLayout.CENTER);
+
+        JPanel footerCard = new JPanel(new BorderLayout(0, 12));
+        BrandTheme.styleCardSurface(footerCard);
+        footerCard.add(createSectionLabel("Actions"), BorderLayout.NORTH);
+        footerCard.add(footer, BorderLayout.CENTER);
+
+        JPanel center = new JPanel(new BorderLayout(0, 18));
+        center.setOpaque(false);
+        center.add(tableCard, BorderLayout.CENTER);
+        center.add(footerCard, BorderLayout.SOUTH);
+
+        add(wrapInCard(employeeHeaderPanel), BorderLayout.NORTH);
+        add(center, BorderLayout.CENTER);
 
         if (!headerResizeListenerAttached) {
             addComponentListener(new ComponentAdapter() {
@@ -263,6 +273,20 @@ public class pnlEmployees extends javax.swing.JPanel {
 
         revalidate();
         repaint();
+    }
+
+    private JPanel wrapInCard(java.awt.Component content) {
+        JPanel card = new JPanel(new BorderLayout());
+        BrandTheme.styleCardSurface(card);
+        card.add(content, BorderLayout.CENTER);
+        return card;
+    }
+
+    private JLabel createSectionLabel(String text) {
+        JLabel label = new JLabel(text);
+        label.setFont(BrandTheme.BUTTON_FONT.deriveFont(Font.BOLD, 16f));
+        label.setForeground(BrandTheme.PRIMARY_BLUE);
+        return label;
     }
 
     private void updateHeaderLayout() {
@@ -426,11 +450,7 @@ public class pnlEmployees extends javax.swing.JPanel {
         );
 
         if (confirmed) {
-            employeeDAO.deleteEmployee(
-                    employee.getEmployeeNumber(),
-                    new ArrayList<>(employees),
-                    CsvFilePaths.EMPLOYEES.toString()
-            );
+            employeeManagementService.deleteEmployee(employee.getEmployeeNumber(), employees);
             notificationService.record(
                     actorUser,
                     "EMPLOYEE_DELETED",
@@ -460,23 +480,14 @@ public class pnlEmployees extends javax.swing.JPanel {
 
     private void showEmployeeEditor(Employee employee) {
 
-        EmployeeEditorPanel editorPanel = new EmployeeEditorPanel(employee);
+        EmployeeEditorPanel editorPanel = new EmployeeEditorPanel(employee, employees);
         String title = employee == null ? "Add Employee" : "Update Employee";
 
-        boolean confirmed = responsiveLayout
-                ? showResponsiveEmployeeEditorDialog(
-                        employee,
-                        editorPanel,
-                        title,
-                        employee == null ? "Add Employee" : "Save Changes"
-                )
-                : DialogHelper.showFormDialog(
-                        this,
-                        title,
-                        editorPanel,
-                        employee == null ? "Add Employee" : "Save Changes",
-                        "Cancel"
-                );
+        boolean confirmed = showEmployeeEditorDialog(
+                editorPanel,
+                title,
+                employee == null ? "Add Employee" : "Save Changes"
+        );
 
         if (!confirmed) {
             return;
@@ -492,18 +503,17 @@ public class pnlEmployees extends javax.swing.JPanel {
                     );
 
             if (employee == null) {
-                employeeDAO.addEmployee(savedEmployee, CsvFilePaths.EMPLOYEES.toString());
+                employeeManagementService.addEmployee(savedEmployee);
                 notificationService.record(
                         actorUser,
                         "EMPLOYEE_ADDED",
                         "Added employee " + savedEmployee.getEmployeeNumber() + " - " + savedEmployee.getEmployeeName() + "."
                 );
             } else {
-                employeeDAO.updateEmployee(
+                employeeManagementService.updateEmployee(
                         employee.getEmployeeNumber(),
                         savedEmployee,
-                        new ArrayList<>(employees),
-                        CsvFilePaths.EMPLOYEES.toString()
+                        employees
                 );
                 notificationService.record(
                         actorUser,
@@ -520,10 +530,9 @@ public class pnlEmployees extends javax.swing.JPanel {
         }
     }
 
-    private boolean showResponsiveEmployeeEditorDialog(Employee employee,
-                                                       EmployeeEditorPanel editorPanel,
-                                                       String title,
-                                                       String primaryLabel) {
+    private boolean showEmployeeEditorDialog(EmployeeEditorPanel editorPanel,
+                                             String title,
+                                             String primaryLabel) {
 
         Window owner = SwingUtilities.getWindowAncestor(this);
         JDialog dialog = new JDialog(owner, title, Dialog.ModalityType.APPLICATION_MODAL);
@@ -545,6 +554,11 @@ public class pnlEmployees extends javax.swing.JPanel {
         final boolean[] confirmed = {false};
         cancelButton.addActionListener(evt -> dialog.dispose());
         primaryButton.addActionListener(evt -> {
+            if (!editorPanel.validateForm()) {
+                dialog.revalidate();
+                dialog.repaint();
+                return;
+            }
             confirmed[0] = true;
             dialog.dispose();
         });
@@ -554,14 +568,20 @@ public class pnlEmployees extends javax.swing.JPanel {
         buttonPanel.add(cancelButton);
         buttonPanel.add(primaryButton);
 
-        shell.add(editorPanel, BorderLayout.CENTER);
+        JScrollPane editorScrollPane = new JScrollPane(editorPanel);
+        editorScrollPane.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
+        editorScrollPane.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED);
+        editorScrollPane.getVerticalScrollBar().setUnitIncrement(16);
+        BrandTheme.styleScrollPane(editorScrollPane);
+
+        shell.add(editorScrollPane, BorderLayout.CENTER);
         shell.add(buttonPanel, BorderLayout.SOUTH);
 
         dialog.setContentPane(shell);
         dialog.getRootPane().setDefaultButton(primaryButton);
         dialog.pack();
-        dialog.setMinimumSize(new Dimension(760, 740));
-        dialog.setSize(Math.max(dialog.getWidth(), 820), Math.max(dialog.getHeight(), 760));
+        dialog.setMinimumSize(new Dimension(820, responsiveLayout ? 640 : 620));
+        dialog.setSize(Math.max(dialog.getWidth(), 880), Math.max(dialog.getHeight(), responsiveLayout ? 660 : 640));
         dialog.setLocationRelativeTo(owner == null ? this : owner);
         dialog.setVisible(true);
         return confirmed[0];
@@ -573,7 +593,6 @@ public class pnlEmployees extends javax.swing.JPanel {
     private javax.swing.JButton btnGovtIDInfo;
     private javax.swing.JButton btnSearchEmployee;
     private javax.swing.JButton btnUpdateEmployee;
-    private javax.swing.JLabel lblEmployee;
     private javax.swing.JLabel lblEmployees;
     private javax.swing.JScrollPane scrollEmployee;
     private javax.swing.JTable tblEmployee;

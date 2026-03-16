@@ -4,13 +4,19 @@ import com.mycompany.motorph.dao.LeaveDAO;
 import com.mycompany.motorph.model.LeaveRequest;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 
 public class LeaveService implements LeaveManager {
 
-    private final LeaveDAO leaveDAO = new LeaveDAO();
+    private final LeaveDAO leaveDAO;
     private final List<LeaveRequest> requests;
 
     public LeaveService() {
+        this(new LeaveDAO());
+    }
+
+    public LeaveService(LeaveDAO leaveDAO) {
+        this.leaveDAO = Objects.requireNonNull(leaveDAO, "leaveDAO");
         requests = new ArrayList<>(leaveDAO.loadLeaves());
     }
 

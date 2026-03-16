@@ -28,6 +28,7 @@ public class SystemToolsFrame extends JFrame {
     private JButton btnLogout;
 
     public SystemToolsFrame(User user) {
+        BrandTheme.installGlobalTheme();
         this.user = user;
         this.userAccountsPanel = new UserAccountsPanel(user);
         setTitle("IT System Tools");
@@ -60,7 +61,7 @@ public class SystemToolsFrame extends JFrame {
 
         JLabel menuLabel = new JLabel("IT Menu");
         menuLabel.setFont(BrandTheme.SUBTITLE_FONT.deriveFont(Font.BOLD, 12f));
-        menuLabel.setForeground(BrandTheme.MUTED);
+        menuLabel.setForeground(BrandTheme.MUTED_INVERSE);
         menuLabel.setAlignmentX(LEFT_ALIGNMENT);
 
         btnUserAccounts = createNavigationButton("User Accounts");
@@ -111,16 +112,19 @@ public class SystemToolsFrame extends JFrame {
     private void configureNavigationButton(JButton button) {
         BrandTheme.styleNavigationButton(button);
         button.setAlignmentX(LEFT_ALIGNMENT);
-        button.setFont(BrandTheme.BODY_FONT.deriveFont(Font.PLAIN, 14f));
-        button.setMinimumSize(new Dimension(188, 40));
-        button.setPreferredSize(new Dimension(188, 40));
-        button.setMaximumSize(new Dimension(Integer.MAX_VALUE, 40));
+        button.setFont(BrandTheme.BUTTON_FONT.deriveFont(Font.BOLD, 13f));
+        button.setMinimumSize(new Dimension(176, 36));
+        button.setPreferredSize(new Dimension(176, 36));
+        button.setMaximumSize(new Dimension(Integer.MAX_VALUE, 36));
     }
 
     private JPanel buildHeader(User user) {
         JPanel header = new JPanel(new BorderLayout(14, 0));
         BrandTheme.styleDarkSurface(header);
-        header.setBorder(BorderFactory.createEmptyBorder(18, 20, 18, 20));
+        header.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createMatteBorder(0, 0, 1, 0, BrandTheme.BORDER),
+                BorderFactory.createEmptyBorder(14, 18, 14, 18)
+        ));
 
         header.add(new JLabel(BrandTheme.loadHeaderLogoIcon()), BorderLayout.WEST);
 
@@ -129,12 +133,12 @@ public class SystemToolsFrame extends JFrame {
         BrandTheme.styleDarkSurface(textPanel);
 
         JLabel title = new JLabel("IT System Tools");
-        title.setFont(BrandTheme.TITLE_FONT);
-        title.setForeground(BrandTheme.TEXT);
+        title.setFont(BrandTheme.TITLE_FONT.deriveFont(Font.BOLD, 18f));
+        title.setForeground(BrandTheme.TEXT_INVERSE);
 
         JLabel subtitle = new JLabel(BrandTheme.TAGLINE);
         subtitle.setFont(BrandTheme.SUBTITLE_FONT.deriveFont(Font.ITALIC));
-        subtitle.setForeground(BrandTheme.MUTED);
+        subtitle.setForeground(BrandTheme.MUTED_INVERSE);
 
         textPanel.add(title);
         textPanel.add(subtitle);
@@ -146,7 +150,7 @@ public class SystemToolsFrame extends JFrame {
         BrandTheme.styleDarkSurface(actions);
 
         JButton notificationsButton = DashboardNavigation.createNotificationButton(this);
-        notificationsButton.setFont(BrandTheme.BUTTON_FONT.deriveFont(Font.BOLD, 14f));
+        notificationsButton.setFont(BrandTheme.BUTTON_FONT.deriveFont(Font.BOLD, 13f));
 
         actions.add(notificationsButton);
         header.add(actions, BorderLayout.EAST);
@@ -156,6 +160,7 @@ public class SystemToolsFrame extends JFrame {
     private JPanel buildContentArea() {
         contentPanel = new JPanel(contentCards);
         contentPanel.setBackground(BrandTheme.NAVY);
+        contentPanel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
         contentPanel.add(userAccountsPanel, "accounts");
         contentPanel.add(csvStatusPanel, "paths");
         contentPanel.add(auditLogPanel, "audit");

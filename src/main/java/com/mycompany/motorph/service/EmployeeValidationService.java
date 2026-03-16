@@ -2,11 +2,19 @@ package com.mycompany.motorph.service;
 
 import com.mycompany.motorph.model.Employee;
 import com.mycompany.motorph.model.EmployeeFormData;
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
+import java.time.format.ResolverStyle;
 import java.util.List;
 import java.util.regex.Pattern;
 
 public class EmployeeValidationService {
 
+    private static final double WORK_DAYS_PER_MONTH = 21.0;
+    private static final double HOURS_PER_DAY = 8.0;
+    private static final DateTimeFormatter BIRTH_DATE_FORMATTER =
+            DateTimeFormatter.ofPattern("MM/dd/uuuu").withResolverStyle(ResolverStyle.STRICT);
     private static final Pattern PHONE_PATTERN = Pattern.compile("\\d{3}-\\d{3}-\\d{3}");
     private static final Pattern SSS_PATTERN = Pattern.compile("\\d{2}-\\d{7}-\\d");
     private static final Pattern PHILHEALTH_PATTERN = Pattern.compile("\\d{12}");
@@ -36,10 +44,10 @@ public class EmployeeValidationService {
 
         String firstName = requireText(data.getFirstName(), "First Name");
         String lastName = requireText(data.getLastName(), "Last Name");
-        String birthDate = trim(data.getBirthDate());
+        String birthDate = requireBirthDate(data.getBirthDate());
         String position = requireText(data.getPosition(), "Position");
         String status = requireText(data.getStatus(), "Status");
-        String supervisor = trim(data.getSupervisor());
+        String supervisor = requireText(data.getSupervisor(), "Immediate Supervisor");
         String address = requireText(data.getAddress(), "Address");
         String phone = requirePattern(data.getPhone(), "Phone Number", PHONE_PATTERN, "Phone Number must follow ###-###-###.");
         String sss = requirePattern(data.getSss(), "SSS", SSS_PATTERN, "SSS must follow ##-#######-#.");
@@ -53,7 +61,7 @@ public class EmployeeValidationService {
         double clothingAllowance = parseRequiredDouble(data.getClothingAllowance(), "Clothing Allowance");
 
         double grossSemiMonthlyRate = round(basicSalary / 2.0);
-        double hourlyRate = round(basicSalary / 22.0 / 8.0);
+        double hourlyRate = round(basicSalary / WORK_DAYS_PER_MONTH / HOURS_PER_DAY);
 
         return new Employee(
                 employeeNumber,
@@ -146,6 +154,16 @@ public class EmployeeValidationService {
         }
 
         return text;
+    }
+
+    private String requireBirthDate(String value) {
+        String text = requireText(value, "Birth Date");
+        try {
+            LocalDate.parse(text, BIRTH_DATE_FORMATTER);
+            return text;
+        } catch (DateTimeParseException e) {
+            throw new IllegalArgumentException("Birth Date must follow MM/dd/yyyy.");
+        }
     }
 
     private String trim(String value) {

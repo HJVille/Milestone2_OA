@@ -18,7 +18,15 @@ public class LeaveDAO implements LeaveInterface {
             "employeeNumber,employeeName,leaveType,startDate,endDate,status,remarks";
     private static final Logger LOGGER = Logger.getLogger(LeaveDAO.class.getName());
 
-    private final Path filePath = CsvFilePaths.LEAVE_REQUESTS;
+    private final Path filePath;
+
+    public LeaveDAO() {
+        this(CsvFilePaths.LEAVE_REQUESTS);
+    }
+
+    public LeaveDAO(Path filePath) {
+        this.filePath = filePath;
+    }
 
     @Override
     public List<LeaveRequest> loadLeaves() {

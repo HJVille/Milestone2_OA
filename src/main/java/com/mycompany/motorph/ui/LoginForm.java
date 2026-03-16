@@ -1,9 +1,9 @@
 package com.mycompany.motorph.ui;
 
-import com.mycompany.motorph.dao.UserDAO;
 import com.mycompany.motorph.model.User;
 import com.mycompany.motorph.service.AuthService;
 import com.mycompany.motorph.service.NotificationService;
+import com.mycompany.motorph.service.UserAccountService;
 import java.awt.BasicStroke;
 import java.awt.BorderLayout;
 import java.awt.Color;
@@ -26,7 +26,6 @@ import javax.swing.Box;
 import javax.swing.BoxLayout;
 import javax.swing.Icon;
 import javax.swing.JButton;
-import javax.swing.JCheckBox;
 import javax.swing.JComponent;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
@@ -36,6 +35,8 @@ import javax.swing.JPasswordField;
 import javax.swing.JTextField;
 import javax.swing.SwingConstants;
 import javax.swing.SwingUtilities;
+import javax.swing.event.DocumentEvent;
+import javax.swing.event.DocumentListener;
 
 public class LoginForm extends javax.swing.JFrame {
 
@@ -43,7 +44,7 @@ public class LoginForm extends javax.swing.JFrame {
     private static final int MAX_ATTEMPTS = 5;
 
     private final AuthService authService = new AuthService();
-    private final UserDAO userDAO = new UserDAO();
+    private final UserAccountService userAccountService = new UserAccountService();
     private final NotificationService notificationService = new NotificationService();
     private int attempts;
 
@@ -56,11 +57,15 @@ public class LoginForm extends javax.swing.JFrame {
     private JLabel lblSubtitle;
     private JPasswordField txtPassword;
     private JTextField txtUsername;
-    private JCheckBox chkShowPassword;
+    private JLabel lblUsernameError;
+    private JLabel lblPasswordError;
+    private JButton btnPasswordVisibility;
     private JPanel logoPanel;
     private JPanel formPanel;
     private JPanel contentShell;
+    private JPanel passwordFieldShell;
     private char passwordEchoChar;
+    private boolean passwordVisible;
 
     public LoginForm() {
         BrandTheme.installGlobalTheme();
@@ -112,6 +117,8 @@ public class LoginForm extends javax.swing.JFrame {
         txtUsername.setMaximumSize(new Dimension(420, 48));
         txtUsername.setPreferredSize(new Dimension(420, 48));
         txtUsername.setAlignmentX(CENTER_ALIGNMENT);
+        lblUsernameError = new JLabel(" ");
+        lblUsernameError.setAlignmentX(CENTER_ALIGNMENT);
 
         lblPassword = new JLabel("Password");
         lblPassword.setAlignmentX(CENTER_ALIGNMENT);
@@ -122,9 +129,18 @@ public class LoginForm extends javax.swing.JFrame {
         txtPassword.setPreferredSize(new Dimension(420, 48));
         txtPassword.setAlignmentX(CENTER_ALIGNMENT);
 
-        chkShowPassword = new JCheckBox("Show Password");
-        chkShowPassword.setAlignmentX(CENTER_ALIGNMENT);
-        chkShowPassword.setOpaque(false);
+        btnPasswordVisibility = new JButton();
+        btnPasswordVisibility.setAlignmentX(CENTER_ALIGNMENT);
+
+        passwordFieldShell = new JPanel(new BorderLayout());
+        passwordFieldShell.setOpaque(true);
+        passwordFieldShell.setMaximumSize(new Dimension(420, 48));
+        passwordFieldShell.setPreferredSize(new Dimension(420, 48));
+        passwordFieldShell.setAlignmentX(CENTER_ALIGNMENT);
+        passwordFieldShell.add(txtPassword, BorderLayout.CENTER);
+        passwordFieldShell.add(btnPasswordVisibility, BorderLayout.EAST);
+        lblPasswordError = new JLabel(" ");
+        lblPasswordError.setAlignmentX(CENTER_ALIGNMENT);
 
         lblFogotPassword = new JLabel("Forgot Password?");
         lblFogotPassword.setAlignmentX(CENTER_ALIGNMENT);
@@ -144,13 +160,15 @@ public class LoginForm extends javax.swing.JFrame {
         formPanel.add(lblUsername);
         formPanel.add(Box.createVerticalStrut(10));
         formPanel.add(txtUsername);
-        formPanel.add(Box.createVerticalStrut(28));
+        formPanel.add(Box.createVerticalStrut(4));
+        formPanel.add(lblUsernameError);
+        formPanel.add(Box.createVerticalStrut(16));
         formPanel.add(lblPassword);
         formPanel.add(Box.createVerticalStrut(10));
-        formPanel.add(txtPassword);
-        formPanel.add(Box.createVerticalStrut(12));
-        formPanel.add(chkShowPassword);
-        formPanel.add(Box.createVerticalStrut(18));
+        formPanel.add(passwordFieldShell);
+        formPanel.add(Box.createVerticalStrut(4));
+        formPanel.add(lblPasswordError);
+        formPanel.add(Box.createVerticalStrut(14));
         formPanel.add(lblFogotPassword);
         formPanel.add(Box.createVerticalStrut(30));
         formPanel.add(btnLogin);
@@ -200,58 +218,82 @@ public class LoginForm extends javax.swing.JFrame {
         getRootPane().setDefaultButton(btnLogin);
 
         contentShell.setOpaque(true);
-        contentShell.setBackground(BrandTheme.NAVY);
+        contentShell.setBackground(BrandTheme.BACKDROP);
         contentShell.setBorder(BorderFactory.createCompoundBorder(
-                BorderFactory.createMatteBorder(0, 0, 6, 6, new Color(0, 0, 0, 56)),
+                BorderFactory.createMatteBorder(0, 0, 8, 8, new Color(15, 23, 42, 24)),
                 BorderFactory.createCompoundBorder(
-                        BorderFactory.createLineBorder(BrandTheme.LAVENDER, 1),
-                        BorderFactory.createEmptyBorder(24, 28, 24, 28)
+                        BorderFactory.createLineBorder(BrandTheme.BORDER, 1),
+                        BorderFactory.createEmptyBorder(16, 16, 16, 16)
                 )
         ));
         logoPanel.setOpaque(true);
-        logoPanel.setBackground(BrandTheme.CARD);
+        logoPanel.setBackground(BrandTheme.SKY);
         logoPanel.setBorder(BorderFactory.createCompoundBorder(
-                BorderFactory.createLineBorder(BrandTheme.LAVENDER, 1),
-                BorderFactory.createEmptyBorder(24, 24, 24, 24)
+                BorderFactory.createLineBorder(BrandTheme.BORDER, 1),
+                BorderFactory.createEmptyBorder(28, 28, 28, 28)
         ));
 
         formPanel.setOpaque(true);
-        formPanel.setBackground(BrandTheme.CARD);
+        formPanel.setBackground(BrandTheme.PANEL_BG);
         formPanel.setBorder(BorderFactory.createCompoundBorder(
-                BorderFactory.createLineBorder(BrandTheme.LAVENDER, 1),
-                BorderFactory.createEmptyBorder(26, 28, 26, 28)
+                BorderFactory.createLineBorder(BrandTheme.BORDER, 1),
+                BorderFactory.createEmptyBorder(24, 26, 24, 26)
         ));
 
         lblWelcome.setForeground(BrandTheme.TEXT);
-        lblWelcome.setFont(BrandTheme.WELCOME_FONT.deriveFont(Font.BOLD, 42f));
+        lblWelcome.setFont(BrandTheme.WELCOME_FONT.deriveFont(Font.BOLD, 34f));
         lblWelcome.setHorizontalAlignment(SwingConstants.CENTER);
-        lblWelcome.setMaximumSize(new Dimension(Integer.MAX_VALUE, 76));
+        lblWelcome.setMaximumSize(new Dimension(Integer.MAX_VALUE, 62));
 
-        lblSubtitle.setFont(BrandTheme.SUBTITLE_FONT.deriveFont(Font.ITALIC, 18f));
+        lblSubtitle.setFont(BrandTheme.SUBTITLE_FONT.deriveFont(Font.BOLD, 15f));
         lblSubtitle.setForeground(BrandTheme.MUTED);
         lblSubtitle.setHorizontalAlignment(SwingConstants.CENTER);
-        lblSubtitle.setMaximumSize(new Dimension(Integer.MAX_VALUE, 32));
+        lblSubtitle.setMaximumSize(new Dimension(Integer.MAX_VALUE, 28));
 
-        lblUsername.setFont(BrandTheme.BUTTON_FONT.deriveFont(Font.BOLD, 18f));
-        lblPassword.setFont(BrandTheme.BUTTON_FONT.deriveFont(Font.BOLD, 18f));
+        lblUsername.setFont(BrandTheme.BUTTON_FONT.deriveFont(Font.BOLD, 14f));
+        lblPassword.setFont(BrandTheme.BUTTON_FONT.deriveFont(Font.BOLD, 14f));
         lblUsername.setForeground(BrandTheme.TEXT);
         lblPassword.setForeground(BrandTheme.TEXT);
+        lblUsernameError.setFont(BrandTheme.SUBTITLE_FONT.deriveFont(Font.PLAIN, 11f));
+        lblPasswordError.setFont(BrandTheme.SUBTITLE_FONT.deriveFont(Font.PLAIN, 11f));
+        lblUsernameError.setForeground(BrandTheme.MOTORPH_RED);
+        lblPasswordError.setForeground(BrandTheme.MOTORPH_RED);
+        lblUsernameError.setVisible(false);
+        lblPasswordError.setVisible(false);
+        lblUsernameError.setMaximumSize(new Dimension(Integer.MAX_VALUE, 14));
+        lblPasswordError.setMaximumSize(new Dimension(Integer.MAX_VALUE, 14));
 
         BrandTheme.styleInputField(txtUsername);
         BrandTheme.styleInputField(txtPassword);
-        txtUsername.setFont(BrandTheme.BODY_FONT.deriveFont(18f));
-        txtPassword.setFont(BrandTheme.BODY_FONT.deriveFont(18f));
+        txtUsername.setFont(BrandTheme.BODY_FONT.deriveFont(14f));
+        txtPassword.setFont(BrandTheme.BODY_FONT.deriveFont(14f));
         passwordEchoChar = txtPassword.getEchoChar() == 0 ? '\u2022' : txtPassword.getEchoChar();
+        txtPassword.setBorder(BorderFactory.createEmptyBorder(8, 12, 8, 6));
 
-        chkShowPassword.setFont(BrandTheme.BODY_FONT.deriveFont(15f));
-        chkShowPassword.setForeground(BrandTheme.MUTED);
-        chkShowPassword.addActionListener(evt -> togglePasswordVisibility());
+        passwordFieldShell.setBackground(BrandTheme.INPUT_BG);
+        passwordFieldShell.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(BrandTheme.BORDER, 1),
+                BorderFactory.createEmptyBorder(0, 0, 0, 0)
+        ));
+
+        btnPasswordVisibility.setFocusable(false);
+        btnPasswordVisibility.setOpaque(false);
+        btnPasswordVisibility.setContentAreaFilled(false);
+        btnPasswordVisibility.setBorderPainted(false);
+        btnPasswordVisibility.setFocusPainted(false);
+        btnPasswordVisibility.setBorder(BorderFactory.createEmptyBorder(0, 12, 0, 12));
+        btnPasswordVisibility.setPreferredSize(new Dimension(44, 48));
+        btnPasswordVisibility.setMinimumSize(new Dimension(44, 48));
+        btnPasswordVisibility.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        btnPasswordVisibility.addActionListener(evt -> togglePasswordVisibility());
+        setPasswordVisibility(false);
+        attachInlineValidation();
 
         BrandTheme.stylePrimaryButton(btnLogin);
-        btnLogin.setFont(BrandTheme.BUTTON_FONT.deriveFont(Font.BOLD, 20f));
+        btnLogin.setFont(BrandTheme.BUTTON_FONT.deriveFont(Font.BOLD, 14f));
 
-        lblFogotPassword.setForeground(BrandTheme.ROYAL);
-        lblFogotPassword.setFont(BrandTheme.BODY_FONT.deriveFont(Font.PLAIN, 17f));
+        lblFogotPassword.setForeground(BrandTheme.PRIMARY_BLUE);
+        lblFogotPassword.setFont(BrandTheme.BODY_FONT.deriveFont(Font.PLAIN, 14f));
         lblFogotPassword.addMouseListener(new java.awt.event.MouseAdapter() {
             @Override
             public void mouseClicked(java.awt.event.MouseEvent evt) {
@@ -261,13 +303,19 @@ public class LoginForm extends javax.swing.JFrame {
 
         txtUsername.setText("");
         txtPassword.setText("");
-        chkShowPassword.setSelected(false);
-        txtPassword.setEchoChar(passwordEchoChar);
+        setPasswordVisibility(false);
         updateResponsiveSizing();
     }
 
     private void togglePasswordVisibility() {
-        txtPassword.setEchoChar(chkShowPassword.isSelected() ? (char) 0 : passwordEchoChar);
+        setPasswordVisibility(!passwordVisible);
+    }
+
+    private void setPasswordVisibility(boolean visible) {
+        passwordVisible = visible;
+        txtPassword.setEchoChar(visible ? (char) 0 : passwordEchoChar);
+        btnPasswordVisibility.setIcon(new PasswordVisibilityIcon(visible));
+        btnPasswordVisibility.setToolTipText(visible ? "Hide password" : "Show password");
     }
 
     private void updateResponsiveSizing() {
@@ -279,24 +327,26 @@ public class LoginForm extends javax.swing.JFrame {
         int shellWidth = Math.min(1320, Math.max(980, width - 80));
         int shellHeight = Math.min(640, Math.max(520, height - 140));
 
-        txtUsername.setMaximumSize(new Dimension(formWidth, 50));
-        txtUsername.setPreferredSize(new Dimension(formWidth, 50));
-        txtPassword.setMaximumSize(new Dimension(formWidth, 50));
-        txtPassword.setPreferredSize(new Dimension(formWidth, 50));
-        btnLogin.setMaximumSize(new Dimension(formWidth, 54));
-        btnLogin.setPreferredSize(new Dimension(formWidth, 54));
+        txtUsername.setMaximumSize(new Dimension(formWidth, 44));
+        txtUsername.setPreferredSize(new Dimension(formWidth, 44));
+        txtPassword.setMaximumSize(new Dimension(formWidth - 56, 44));
+        txtPassword.setPreferredSize(new Dimension(formWidth - 56, 44));
+        passwordFieldShell.setMaximumSize(new Dimension(formWidth, 44));
+        passwordFieldShell.setPreferredSize(new Dimension(formWidth, 44));
+        btnLogin.setMaximumSize(new Dimension(formWidth, 46));
+        btnLogin.setPreferredSize(new Dimension(formWidth, 46));
         contentShell.setPreferredSize(new Dimension(shellWidth, shellHeight));
-        lblWelcome.setPreferredSize(new Dimension(formWidth, 76));
-        lblSubtitle.setPreferredSize(new Dimension(formWidth, 32));
+        lblWelcome.setPreferredSize(new Dimension(formWidth, 62));
+        lblSubtitle.setPreferredSize(new Dimension(formWidth, 28));
 
         Icon icon = BrandTheme.loadLogoIcon(logoWidth, logoHeight);
         if (icon != null) {
             lblLogo.setIcon(icon);
         }
-        float titleSize = Math.min(40f, Math.max(28f, width / 38f));
-        float subtitleSize = Math.min(21f, Math.max(17f, width / 66f));
+        float titleSize = Math.min(34f, Math.max(24f, width / 42f));
+        float subtitleSize = Math.min(16f, Math.max(13f, width / 84f));
         lblWelcome.setFont(BrandTheme.WELCOME_FONT.deriveFont(Font.BOLD, titleSize));
-        lblSubtitle.setFont(BrandTheme.SUBTITLE_FONT.deriveFont(Font.ITALIC, subtitleSize));
+        lblSubtitle.setFont(BrandTheme.SUBTITLE_FONT.deriveFont(Font.BOLD, subtitleSize));
 
         revalidate();
         repaint();
@@ -306,12 +356,25 @@ public class LoginForm extends javax.swing.JFrame {
         String username = txtUsername.getText().trim();
         String password = new String(txtPassword.getPassword());
 
-        if (username.isEmpty() || password.isBlank()) {
-            JOptionPane.showMessageDialog(this, "Enter both username and password.", "Login Failed", JOptionPane.WARNING_MESSAGE);
+        boolean valid = true;
+        if (username.isEmpty()) {
+            showTextFieldError(txtUsername, lblUsernameError, "This field is required.");
+            valid = false;
+        }
+        if (password.isBlank()) {
+            showPasswordFieldError("This field is required.");
+            valid = false;
+        }
+        if (!valid) {
+            if (username.isEmpty()) {
+                txtUsername.requestFocusInWindow();
+            } else {
+                txtPassword.requestFocusInWindow();
+            }
             return;
         }
 
-        List<User> users = userDAO.loadUsers();
+        List<User> users = userAccountService.loadUsers();
         if (users.isEmpty()) {
             JOptionPane.showMessageDialog(this, "No user records were loaded. Check CSVs/users.csv.", "Login Unavailable", JOptionPane.ERROR_MESSAGE);
             return;
@@ -374,7 +437,7 @@ public class LoginForm extends javax.swing.JFrame {
                     destination = new AdminDashboardFrame(user);
                     break;
                 case "EMPLOYEE":
-                    destination = new EmployeeDashboard(user, userDAO.loadUsers());
+                    destination = new EmployeeDashboard(user, userAccountService.loadUsers());
                     break;
                 default:
                     JOptionPane.showMessageDialog(
@@ -414,7 +477,7 @@ public class LoginForm extends javax.swing.JFrame {
     }
 
     private void showForgotPasswordMessage() {
-        List<User> users = userDAO.loadUsers();
+        List<User> users = userAccountService.loadUsers();
         if (users.isEmpty()) {
             JOptionPane.showMessageDialog(
                     this,
@@ -446,13 +509,20 @@ public class LoginForm extends javax.swing.JFrame {
                 showEmployeeResetDialog(users);
                 break;
             case "HR":
-                JOptionPane.showMessageDialog(this, "Contact Administratior", "Forgot Password", JOptionPane.INFORMATION_MESSAGE);
+                JOptionPane.showMessageDialog(this, "Contact Administrator.", "Forgot Password", JOptionPane.INFORMATION_MESSAGE);
                 break;
             case "ADMIN":
+                JOptionPane.showMessageDialog(
+                        this,
+                        "Self-service reset is disabled for admin accounts.\nContact IT for password assistance.",
+                        "Forgot Password",
+                        JOptionPane.WARNING_MESSAGE
+                );
+                break;
             case "IT":
                 JOptionPane.showMessageDialog(
                         this,
-                        "Self-service reset is disabled for privileged accounts.\nContact Administratior.",
+                        "Self-service reset is disabled for IT accounts.\nContact the Administrator for password assistance.",
                         "Forgot Password",
                         JOptionPane.WARNING_MESSAGE
                 );
@@ -460,7 +530,7 @@ public class LoginForm extends javax.swing.JFrame {
             default:
                 JOptionPane.showMessageDialog(
                         this,
-                        "Contact Administratior for password assistance.",
+                        "Contact the Administrator for password assistance.",
                         "Forgot Password",
                         JOptionPane.INFORMATION_MESSAGE
                 );
@@ -628,24 +698,144 @@ public class LoginForm extends javax.swing.JFrame {
             g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
 
             GradientPaint gradient = new GradientPaint(
-                    0, 0, BrandTheme.IVORY,
-                    getWidth(), getHeight(), BrandTheme.SKY
+                    0, 0, Color.WHITE,
+                    getWidth(), getHeight(), BrandTheme.BACKDROP
             );
             g2.setPaint(gradient);
             g2.fillRect(0, 0, getWidth(), getHeight());
 
+            g2.setColor(new Color(BrandTheme.PRIMARY_BLUE.getRed(), BrandTheme.PRIMARY_BLUE.getGreen(), BrandTheme.PRIMARY_BLUE.getBlue(), 36));
+            g2.fillOval(-140, -120, 420, 420);
+            g2.setColor(new Color(BrandTheme.MOTORPH_RED.getRed(), BrandTheme.MOTORPH_RED.getGreen(), BrandTheme.MOTORPH_RED.getBlue(), 26));
+            g2.fillOval(getWidth() - 300, getHeight() - 260, 340, 340);
             g2.setColor(new Color(255, 255, 255, 120));
-            g2.fillRoundRect(56, 44, getWidth() - 112, getHeight() - 88, 42, 42);
-            g2.setColor(new Color(255, 255, 255, 84));
-            g2.fillOval(-160, getHeight() - 240, 340, 340);
-            g2.fillOval(getWidth() - 240, -120, 300, 300);
+            g2.fillRoundRect(52, 40, getWidth() - 104, getHeight() - 80, 42, 42);
 
             g2.setStroke(new BasicStroke(3f));
-            g2.setColor(new Color(BrandTheme.GOLD.getRed(), BrandTheme.GOLD.getGreen(), BrandTheme.GOLD.getBlue(), 92));
-            g2.drawArc(-40, getHeight() - 230, 260, 190, 20, 120);
-            g2.drawArc(getWidth() - 260, 80, 220, 160, 210, 120);
+            g2.setColor(new Color(BrandTheme.GOLD.getRed(), BrandTheme.GOLD.getGreen(), BrandTheme.GOLD.getBlue(), 72));
+            g2.drawArc(-40, getHeight() - 220, 250, 180, 18, 118);
+            g2.drawArc(getWidth() - 280, 72, 220, 150, 208, 118);
 
             g2.dispose();
+        }
+    }
+
+    private void attachInlineValidation() {
+        txtUsername.getDocument().addDocumentListener(new DocumentListener() {
+            @Override
+            public void insertUpdate(DocumentEvent e) {
+                if (!txtUsername.getText().trim().isEmpty()) {
+                    clearTextFieldError(txtUsername, lblUsernameError);
+                }
+            }
+
+            @Override
+            public void removeUpdate(DocumentEvent e) {
+                if (!txtUsername.getText().trim().isEmpty()) {
+                    clearTextFieldError(txtUsername, lblUsernameError);
+                }
+            }
+
+            @Override
+            public void changedUpdate(DocumentEvent e) {
+                if (!txtUsername.getText().trim().isEmpty()) {
+                    clearTextFieldError(txtUsername, lblUsernameError);
+                }
+            }
+        });
+
+        txtPassword.getDocument().addDocumentListener(new DocumentListener() {
+            @Override
+            public void insertUpdate(DocumentEvent e) {
+                if (txtPassword.getPassword().length > 0) {
+                    clearPasswordFieldError();
+                }
+            }
+
+            @Override
+            public void removeUpdate(DocumentEvent e) {
+                if (txtPassword.getPassword().length > 0) {
+                    clearPasswordFieldError();
+                }
+            }
+
+            @Override
+            public void changedUpdate(DocumentEvent e) {
+                if (txtPassword.getPassword().length > 0) {
+                    clearPasswordFieldError();
+                }
+            }
+        });
+    }
+
+    private void showTextFieldError(JTextField field, JLabel errorLabel, String message) {
+        errorLabel.setText(message);
+        errorLabel.setVisible(true);
+        field.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(BrandTheme.MOTORPH_RED, 1),
+                BorderFactory.createEmptyBorder(8, 12, 8, 12)
+        ));
+    }
+
+    private void clearTextFieldError(JTextField field, JLabel errorLabel) {
+        errorLabel.setText(" ");
+        errorLabel.setVisible(false);
+        BrandTheme.styleInputField(field);
+        field.setFont(BrandTheme.BODY_FONT.deriveFont(18f));
+    }
+
+    private void showPasswordFieldError(String message) {
+        lblPasswordError.setText(message);
+        lblPasswordError.setVisible(true);
+        passwordFieldShell.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(BrandTheme.MOTORPH_RED, 1),
+                BorderFactory.createEmptyBorder(0, 0, 0, 0)
+        ));
+    }
+
+    private void clearPasswordFieldError() {
+        lblPasswordError.setText(" ");
+        lblPasswordError.setVisible(false);
+        passwordFieldShell.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(BrandTheme.BORDER, 1),
+                BorderFactory.createEmptyBorder(0, 0, 0, 0)
+        ));
+    }
+
+    private static final class PasswordVisibilityIcon implements Icon {
+
+        private final boolean visible;
+
+        private PasswordVisibilityIcon(boolean visible) {
+            this.visible = visible;
+        }
+
+        @Override
+        public void paintIcon(java.awt.Component c, Graphics g, int x, int y) {
+            Graphics2D g2 = (Graphics2D) g.create();
+            g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+            g2.setStroke(new BasicStroke(1.8f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+            g2.setColor(BrandTheme.MUTED);
+
+            g2.drawArc(x + 1, y + 4, 18, 10, 0, 180);
+            g2.drawArc(x + 1, y + 0, 18, 10, 180, 180);
+            g2.fillOval(x + 8, y + 4, 4, 4);
+
+            if (!visible) {
+                g2.drawLine(x + 3, y + 15, x + 17, y + 1);
+            }
+
+            g2.dispose();
+        }
+
+        @Override
+        public int getIconWidth() {
+            return 20;
+        }
+
+        @Override
+        public int getIconHeight() {
+            return 16;
         }
     }
 }

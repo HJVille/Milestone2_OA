@@ -233,7 +233,7 @@ public class DatePickerField extends JPanel {
 
         if (date.equals(selectedDate)) {
             button.setBackground(BrandTheme.ROYAL);
-            button.setForeground(BrandTheme.NAVY);
+            button.setForeground(BrandTheme.TEXT);
         } else if (date.equals(AppClock.today())) {
             button.setBackground(BrandTheme.PAPER);
             button.setForeground(BrandTheme.TEXT);
@@ -243,7 +243,7 @@ public class DatePickerField extends JPanel {
         }
 
         if (date.getDayOfWeek() == DayOfWeek.SATURDAY || date.getDayOfWeek() == DayOfWeek.SUNDAY) {
-            button.setForeground(date.equals(selectedDate) ? BrandTheme.NAVY : BrandTheme.MUTED);
+            button.setForeground(date.equals(selectedDate) ? BrandTheme.TEXT : BrandTheme.MUTED);
         }
     }
 }

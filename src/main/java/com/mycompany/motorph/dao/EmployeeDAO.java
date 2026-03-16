@@ -14,6 +14,8 @@ import java.util.regex.Pattern;
 
 public class EmployeeDAO implements EmployeeInterface {
 
+    private static final double WORK_DAYS_PER_MONTH = 21.0;
+    private static final double HOURS_PER_DAY = 8.0;
     private static final String HEADER =
             "EmployeeNumber,LastName,FirstName,BirthDate,Address,Phone,SSS,Philhealth,TIN,Pagibig,Status,Position,Supervisor,BasicSalary,RiceSubsidy,PhoneAllowance,ClothingAllowance,GrossSemiMonthlyRate,HourlyRate";
     private static final Pattern PHONE_PATTERN = Pattern.compile("\\d{3}-\\d{3}-\\d{3}");
@@ -162,7 +164,7 @@ public class EmployeeDAO implements EmployeeInterface {
 
         ParsedEmployeeRow parsed = parseEmployeeRow(data);
         double grossSemiMonthlyRate = round(parsed.basicSalary / 2.0);
-        double hourlyRate = parsed.basicSalary > 0 ? round(parsed.basicSalary / 22.0 / 8.0) : 0.0;
+        double hourlyRate = parsed.basicSalary > 0 ? round(parsed.basicSalary / WORK_DAYS_PER_MONTH / HOURS_PER_DAY) : 0.0;
 
         return new Employee(
                 parsed.employeeNumber,
@@ -219,7 +221,7 @@ public class EmployeeDAO implements EmployeeInterface {
             grossSemiMonthlyRate = round(basicSalary / 2.0);
         }
         if (hourlyRate <= 0.0 && basicSalary > 0.0) {
-            hourlyRate = round(basicSalary / 22.0 / 8.0);
+            hourlyRate = round(basicSalary / WORK_DAYS_PER_MONTH / HOURS_PER_DAY);
         }
 
         return new Employee(

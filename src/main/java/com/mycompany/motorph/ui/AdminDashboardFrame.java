@@ -47,6 +47,7 @@ public class AdminDashboardFrame extends JFrame {
     private JButton btnLogout;
 
     public AdminDashboardFrame(User user) {
+        BrandTheme.installGlobalTheme();
         this.user = user;
         this.employeesPanel = new pnlEmployees(user, true, ADMIN_EMPLOYEE_FILTERS);
         this.leaveRequestPanel = new pnlLeaveRequest(user, true, ADMIN_LEAVE_FILTERS);
@@ -72,18 +73,17 @@ public class AdminDashboardFrame extends JFrame {
         navigation.setBackground(BrandTheme.GRAPHITE);
         navigation.setBorder(BorderFactory.createCompoundBorder(
                 BorderFactory.createMatteBorder(0, 0, 0, 1, BrandTheme.LAVENDER),
-                BorderFactory.createEmptyBorder(18, 14, 18, 14)
+                BorderFactory.createEmptyBorder(14, 12, 14, 12)
         ));
-        navigation.setPreferredSize(new Dimension(228, 0));
+        navigation.setPreferredSize(new Dimension(210, 0));
 
         JPanel menuButtons = new JPanel();
         menuButtons.setOpaque(false);
         menuButtons.setLayout(new BoxLayout(menuButtons, BoxLayout.Y_AXIS));
 
-        JLabel menuLabel = new JLabel("Admin Menu");
-        menuLabel.setFont(BrandTheme.SUBTITLE_FONT.deriveFont(Font.BOLD, 12f));
-        menuLabel.setForeground(BrandTheme.MUTED);
-        menuLabel.setAlignmentX(LEFT_ALIGNMENT);
+        JLabel menuLabel = createMenuGroupLabel("Administration");
+        JLabel operationsLabel = createMenuGroupLabel("Operations");
+        JLabel systemLabel = createMenuGroupLabel("System Tools");
 
         btnEmployees = createNavigationButton("Employees");
         btnAttendance = createNavigationButton("Attendance");
@@ -127,6 +127,8 @@ public class AdminDashboardFrame extends JFrame {
 
         menuButtons.add(menuLabel);
         menuButtons.add(Box.createVerticalStrut(12));
+        menuButtons.add(operationsLabel);
+        menuButtons.add(Box.createVerticalStrut(8));
         menuButtons.add(btnEmployees);
         menuButtons.add(Box.createVerticalStrut(10));
         menuButtons.add(btnAttendance);
@@ -134,7 +136,9 @@ public class AdminDashboardFrame extends JFrame {
         menuButtons.add(btnLeaveRequests);
         menuButtons.add(Box.createVerticalStrut(10));
         menuButtons.add(btnPayroll);
-        menuButtons.add(Box.createVerticalStrut(10));
+        menuButtons.add(Box.createVerticalStrut(16));
+        menuButtons.add(systemLabel);
+        menuButtons.add(Box.createVerticalStrut(8));
         menuButtons.add(btnUserAccounts);
         menuButtons.add(Box.createVerticalStrut(10));
         menuButtons.add(btnCsvPaths);
@@ -158,19 +162,30 @@ public class AdminDashboardFrame extends JFrame {
         return button;
     }
 
+    private JLabel createMenuGroupLabel(String text) {
+        JLabel label = new JLabel(text);
+        label.setFont(BrandTheme.SUBTITLE_FONT.deriveFont(Font.BOLD, 11f));
+        label.setForeground(BrandTheme.MUTED_INVERSE);
+        label.setAlignmentX(LEFT_ALIGNMENT);
+        return label;
+    }
+
     private void configureNavigationButton(JButton button) {
         BrandTheme.styleNavigationButton(button);
         button.setAlignmentX(LEFT_ALIGNMENT);
-        button.setFont(BrandTheme.BODY_FONT.deriveFont(Font.PLAIN, 14f));
-        button.setMinimumSize(new Dimension(188, 40));
-        button.setPreferredSize(new Dimension(188, 40));
-        button.setMaximumSize(new Dimension(Integer.MAX_VALUE, 40));
+        button.setFont(BrandTheme.BUTTON_FONT.deriveFont(Font.BOLD, 13f));
+        button.setMinimumSize(new Dimension(176, 36));
+        button.setPreferredSize(new Dimension(176, 36));
+        button.setMaximumSize(new Dimension(Integer.MAX_VALUE, 36));
     }
 
     private JPanel buildHeader(User user) {
         JPanel header = new JPanel(new BorderLayout(14, 0));
         BrandTheme.styleDarkSurface(header);
-        header.setBorder(BorderFactory.createEmptyBorder(18, 20, 18, 20));
+        header.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createMatteBorder(0, 0, 1, 0, BrandTheme.BORDER),
+                BorderFactory.createEmptyBorder(14, 18, 14, 18)
+        ));
 
         header.add(new JLabel(BrandTheme.loadHeaderLogoIcon()), BorderLayout.WEST);
 
@@ -179,12 +194,12 @@ public class AdminDashboardFrame extends JFrame {
         BrandTheme.styleDarkSurface(textPanel);
 
         JLabel title = new JLabel("Admin Workspace", SwingConstants.LEFT);
-        title.setFont(BrandTheme.TITLE_FONT);
-        title.setForeground(BrandTheme.TEXT);
+        title.setFont(BrandTheme.TITLE_FONT.deriveFont(Font.BOLD, 18f));
+        title.setForeground(BrandTheme.TEXT_INVERSE);
 
         JLabel subtitle = new JLabel(BrandTheme.TAGLINE);
         subtitle.setFont(BrandTheme.SUBTITLE_FONT.deriveFont(Font.ITALIC));
-        subtitle.setForeground(BrandTheme.MUTED);
+        subtitle.setForeground(BrandTheme.MUTED_INVERSE);
 
         textPanel.add(title);
         textPanel.add(subtitle);
@@ -196,7 +211,7 @@ public class AdminDashboardFrame extends JFrame {
         BrandTheme.styleDarkSurface(actions);
 
         JButton notificationsButton = DashboardNavigation.createNotificationButton(this);
-        notificationsButton.setFont(BrandTheme.BUTTON_FONT.deriveFont(Font.BOLD, 14f));
+        notificationsButton.setFont(BrandTheme.BUTTON_FONT.deriveFont(Font.BOLD, 13f));
 
         actions.add(notificationsButton);
         header.add(actions, BorderLayout.EAST);
@@ -206,6 +221,7 @@ public class AdminDashboardFrame extends JFrame {
     private JPanel buildContentArea() {
         contentPanel = new JPanel(contentCards);
         contentPanel.setBackground(BrandTheme.NAVY);
+        contentPanel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
         contentPanel.add(employeesPanel, "employees");
         contentPanel.add(attendancePanel, "attendance");
         contentPanel.add(leaveRequestPanel, "leave");

@@ -17,6 +17,7 @@ public class FinanceDashboardFrame extends JFrame {
     private final PayrollDashboard payrollDashboard;
 
     public FinanceDashboardFrame(User user) {
+        BrandTheme.installGlobalTheme();
         this.user = user;
         this.payrollDashboard = new PayrollDashboard(user);
         setTitle("Finance Dashboard");
@@ -36,7 +37,10 @@ public class FinanceDashboardFrame extends JFrame {
     private JPanel buildHeader() {
         JPanel header = new JPanel(new BorderLayout(14, 0));
         BrandTheme.styleDarkSurface(header);
-        header.setBorder(BorderFactory.createEmptyBorder(18, 20, 18, 20));
+        header.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createMatteBorder(0, 0, 1, 0, BrandTheme.BORDER),
+                BorderFactory.createEmptyBorder(14, 18, 14, 18)
+        ));
 
         header.add(new JLabel(BrandTheme.loadHeaderLogoIcon()), BorderLayout.WEST);
 
@@ -47,11 +51,11 @@ public class FinanceDashboardFrame extends JFrame {
         String welcomeText = "Welcome, " + resolveFinanceName() + " | Finance Workspace";
         JLabel title = new JLabel(welcomeText);
         BrandTheme.setWelcomeText(title, welcomeText, true);
-        title.setFont(BrandTheme.TITLE_FONT);
+        title.setFont(BrandTheme.TITLE_FONT.deriveFont(Font.BOLD, 18f));
 
         JLabel subtitle = new JLabel(BrandTheme.TAGLINE);
         subtitle.setFont(BrandTheme.SUBTITLE_FONT.deriveFont(Font.ITALIC));
-        subtitle.setForeground(BrandTheme.MUTED);
+        subtitle.setForeground(BrandTheme.MUTED_INVERSE);
 
         titlePanel.add(title);
         titlePanel.add(subtitle);
@@ -61,7 +65,7 @@ public class FinanceDashboardFrame extends JFrame {
         BrandTheme.styleDarkSurface(actions);
 
         JButton notificationsButton = DashboardNavigation.createNotificationButton(this);
-        notificationsButton.setFont(BrandTheme.BUTTON_FONT.deriveFont(Font.BOLD, 14f));
+        notificationsButton.setFont(BrandTheme.BUTTON_FONT.deriveFont(Font.BOLD, 13f));
 
         actions.add(notificationsButton);
 

@@ -2,19 +2,31 @@ package com.mycompany.motorph.service;
 
 import com.mycompany.motorph.dao.AttendanceDAO;
 import com.mycompany.motorph.model.Employee;
+import java.time.Clock;
 import java.time.LocalDate;
+import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Objects;
 
 public class AttendanceService {
 
     private static final DateTimeFormatter DATE_FORMAT = DateTimeFormatter.ofPattern("MM/dd/yyyy");
     private static final DateTimeFormatter TIME_FORMAT = DateTimeFormatter.ofPattern("H:mm");
 
-    private final AttendanceDAO attendanceDAO = new AttendanceDAO();
+    private final AttendanceDAO attendanceDAO;
+    private final Clock clock;
+
+    public AttendanceService() {
+        this(new AttendanceDAO(), AppClock.clock());
+    }
+
+    public AttendanceService(AttendanceDAO attendanceDAO, Clock clock) {
+        this.attendanceDAO = Objects.requireNonNull(attendanceDAO, "attendanceDAO");
+        this.clock = Objects.requireNonNull(clock, "clock");
+    }
 
     public List<String[]> getAttendanceHistory(int employeeNumber) {
 
@@ -33,13 +45,18 @@ public class AttendanceService {
         return new ArrayList<>(rows.subList(0, limit));
     }
 
+    public List<String[]> getAllAttendanceRows() {
+
+        return new ArrayList<>(attendanceDAO.loadAttendanceRows());
+    }
+
     public String timeIn(Employee employee) {
 
         if (employee == null) {
             return "Employee record not found.";
         }
 
-        LocalDate today = AppClock.today();
+        LocalDate today = LocalDate.now(clock);
         String todayText = DATE_FORMAT.format(today);
         List<String[]> rows = attendanceDAO.loadAttendanceRows();
 
@@ -57,7 +74,7 @@ public class AttendanceService {
             employee.getLastName(),
             employee.getFirstName(),
             todayText,
-            TIME_FORMAT.format(AppClock.timeNow()),
+            TIME_FORMAT.format(LocalTime.now(clock)),
             ""
         });
         attendanceDAO.saveAttendanceRows(rows);
@@ -71,7 +88,7 @@ public class AttendanceService {
             return "Employee record not found.";
         }
 
-        LocalDate today = AppClock.today();
+        LocalDate today = LocalDate.now(clock);
         String todayText = DATE_FORMAT.format(today);
         List<String[]> rows = attendanceDAO.loadAttendanceRows();
 
@@ -89,7 +106,7 @@ public class AttendanceService {
                 return "You are already timed out for today.";
             }
 
-            row[5] = TIME_FORMAT.format(AppClock.timeNow());
+            row[5] = TIME_FORMAT.format(LocalTime.now(clock));
             attendanceDAO.saveAttendanceRows(rows);
             return "Time out recorded successfully.";
         }
@@ -103,7 +120,7 @@ public class AttendanceService {
             return "Employee record unavailable.";
         }
 
-        String todayText = DATE_FORMAT.format(AppClock.today());
+        String todayText = DATE_FORMAT.format(LocalDate.now(clock));
 
         for (String[] row : attendanceDAO.loadAttendanceRows(employee.getEmployeeNumber())) {
             if (!matchesRow(row, employee.getEmployeeNumber(), todayText)) {

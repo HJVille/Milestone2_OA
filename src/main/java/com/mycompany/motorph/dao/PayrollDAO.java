@@ -20,7 +20,15 @@ public class PayrollDAO implements PayrollInterface {
             "employeeNumber,employeeName,periodStart,periodEnd,basicSalary,riceSubsidy,phoneAllowance,clothingAllowance,grossSalary,sss,philhealth,pagibig,tax,netSalary";
     private static final Logger LOGGER = Logger.getLogger(PayrollDAO.class.getName());
 
-    private final Path filePath = CsvFilePaths.PAYROLL_RECORDS;
+    private final Path filePath;
+
+    public PayrollDAO() {
+        this(CsvFilePaths.PAYROLL_RECORDS);
+    }
+
+    public PayrollDAO(Path filePath) {
+        this.filePath = filePath;
+    }
 
     @Override
     public void savePayroll(Payslip payslip) {

@@ -20,8 +20,21 @@ import java.util.logging.Logger;
 public class UserDAO implements UserInterface {
 
     private static final Logger LOGGER = Logger.getLogger(UserDAO.class.getName());
-    private static final Path PRIMARY_FILE_PATH = CsvFilePaths.USERS;
-    private static final Path LEGACY_FILE_PATH = CsvFilePaths.resolve("users.csv");
+    private final Path primaryFilePath;
+    private final Path legacyFilePath;
+
+    public UserDAO() {
+        this(CsvFilePaths.USERS, CsvFilePaths.resolve("users.csv"));
+    }
+
+    public UserDAO(Path primaryFilePath) {
+        this(primaryFilePath, primaryFilePath);
+    }
+
+    public UserDAO(Path primaryFilePath, Path legacyFilePath) {
+        this.primaryFilePath = primaryFilePath;
+        this.legacyFilePath = legacyFilePath;
+    }
 
     public List<User> loadUsers() {
         List<User> users = new ArrayList<>();
@@ -104,16 +117,16 @@ public class UserDAO implements UserInterface {
     }
 
     private Path resolveFilePath() {
-        if (Files.exists(PRIMARY_FILE_PATH)) {
-            return PRIMARY_FILE_PATH;
+        if (Files.exists(primaryFilePath)) {
+            return primaryFilePath;
         }
-        return LEGACY_FILE_PATH;
+        return legacyFilePath;
     }
 
     private Path resolveWritePath() {
-        if (Files.exists(PRIMARY_FILE_PATH) || !Files.exists(LEGACY_FILE_PATH)) {
-            return PRIMARY_FILE_PATH;
+        if (Files.exists(primaryFilePath) || !Files.exists(legacyFilePath)) {
+            return primaryFilePath;
         }
-        return LEGACY_FILE_PATH;
+        return legacyFilePath;
     }
 }

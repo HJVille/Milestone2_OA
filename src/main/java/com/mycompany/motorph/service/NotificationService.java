@@ -3,14 +3,27 @@ package com.mycompany.motorph.service;
 import com.mycompany.motorph.dao.NotificationDAO;
 import com.mycompany.motorph.model.NotificationEntry;
 import com.mycompany.motorph.model.User;
+import java.time.Clock;
+import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 
 public class NotificationService {
 
     private static final DateTimeFormatter TIMESTAMP = DateTimeFormatter.ISO_LOCAL_DATE_TIME;
-    private final NotificationDAO notificationDAO = new NotificationDAO();
+    private final NotificationDAO notificationDAO;
+    private final Clock clock;
+
+    public NotificationService() {
+        this(new NotificationDAO(), AppClock.clock());
+    }
+
+    public NotificationService(NotificationDAO notificationDAO, Clock clock) {
+        this.notificationDAO = Objects.requireNonNull(notificationDAO, "notificationDAO");
+        this.clock = Objects.requireNonNull(clock, "clock");
+    }
 
     public void record(User actor, String action, String details) {
         if (actor == null) {
@@ -23,7 +36,7 @@ public class NotificationService {
 
     public void record(String actor, String role, String action, String details) {
         notificationDAO.append(new NotificationEntry(
-                AppClock.dateTimeNow().format(TIMESTAMP),
+                LocalDateTime.now(clock).format(TIMESTAMP),
                 actor == null || actor.isBlank() ? "System" : actor.trim(),
                 role == null || role.isBlank() ? "SYSTEM" : role.trim(),
                 action == null ? "" : action.trim(),

@@ -48,6 +48,7 @@ public class HRDashboard extends JFrame {
     private NotificationBadgeLabel notificationBadgeLabel;
 
     public HRDashboard(User user) {
+        BrandTheme.installGlobalTheme();
         this.user = user;
         this.employeesPanel = new pnlEmployees(user, true);
         this.leaveRequestPanel = new pnlLeaveRequest(user, true);
@@ -85,17 +86,17 @@ public class HRDashboard extends JFrame {
         navigation.setBackground(BrandTheme.GRAPHITE);
         navigation.setBorder(BorderFactory.createCompoundBorder(
                 BorderFactory.createMatteBorder(0, 0, 0, 1, BrandTheme.LAVENDER),
-                BorderFactory.createEmptyBorder(18, 14, 18, 14)
+                BorderFactory.createEmptyBorder(14, 12, 14, 12)
         ));
-        navigation.setPreferredSize(new Dimension(228, 0));
+        navigation.setPreferredSize(new Dimension(202, 0));
 
         JPanel menuButtons = new JPanel();
         menuButtons.setOpaque(false);
         menuButtons.setLayout(new BoxLayout(menuButtons, BoxLayout.Y_AXIS));
 
-        JLabel menuLabel = new JLabel("HR Menu");
-        menuLabel.setFont(BrandTheme.SUBTITLE_FONT.deriveFont(Font.BOLD, 12f));
-        menuLabel.setForeground(BrandTheme.MUTED);
+        JLabel menuLabel = new JLabel("HR Operations");
+        menuLabel.setFont(BrandTheme.SUBTITLE_FONT.deriveFont(Font.BOLD, 11f));
+        menuLabel.setForeground(BrandTheme.MUTED_INVERSE);
         menuLabel.setAlignmentX(LEFT_ALIGNMENT);
 
         btnManageEmployees = createNavigationButton("Manage Employees");
@@ -146,23 +147,26 @@ public class HRDashboard extends JFrame {
     private void configureNavigationButton(JButton button) {
         BrandTheme.styleNavigationButton(button);
         button.setAlignmentX(LEFT_ALIGNMENT);
-        button.setFont(BrandTheme.BODY_FONT.deriveFont(Font.PLAIN, 14f));
-        button.setMinimumSize(new Dimension(188, 40));
-        button.setPreferredSize(new Dimension(188, 40));
-        button.setMaximumSize(new Dimension(Integer.MAX_VALUE, 40));
+        button.setFont(BrandTheme.BUTTON_FONT.deriveFont(Font.BOLD, 13f));
+        button.setMinimumSize(new Dimension(170, 36));
+        button.setPreferredSize(new Dimension(170, 36));
+        button.setMaximumSize(new Dimension(Integer.MAX_VALUE, 36));
     }
 
     private JPanel buildContentArea() {
         contentPanel = new JPanel(new BorderLayout());
         contentPanel.setBackground(BrandTheme.NAVY);
-        contentPanel.setBorder(BorderFactory.createEmptyBorder(14, 14, 14, 14));
+        contentPanel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
         showPanel(employeesPanel);
         return contentPanel;
     }
 
     private JPanel buildHeader() {
         JPanel header = new JPanel(new BorderLayout(14, 0));
-        header.setBorder(BorderFactory.createEmptyBorder(18, 20, 18, 20));
+        header.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createMatteBorder(0, 0, 1, 0, BrandTheme.BORDER),
+                BorderFactory.createEmptyBorder(14, 18, 14, 18)
+        ));
         BrandTheme.styleDarkSurface(header);
 
         JLabel logoLabel = new JLabel(BrandTheme.loadHeaderLogoIcon());
@@ -173,11 +177,11 @@ public class HRDashboard extends JFrame {
 
         JLabel titleLabel = new JLabel(getHrWelcomeText());
         BrandTheme.setWelcomeText(titleLabel, getHrWelcomeText(), true);
-        titleLabel.setFont(BrandTheme.TITLE_FONT);
+        titleLabel.setFont(BrandTheme.TITLE_FONT.deriveFont(Font.BOLD, 18f));
 
         JLabel subtitleLabel = new JLabel(BrandTheme.TAGLINE);
         subtitleLabel.setFont(BrandTheme.SUBTITLE_FONT.deriveFont(Font.ITALIC));
-        subtitleLabel.setForeground(BrandTheme.MUTED);
+        subtitleLabel.setForeground(BrandTheme.MUTED_INVERSE);
 
         titlePanel.add(titleLabel);
         titlePanel.add(subtitleLabel);
@@ -216,7 +220,7 @@ public class HRDashboard extends JFrame {
 
     private void configureHeaderNotificationButton(JButton button) {
         BrandTheme.styleSecondaryButton(button);
-        button.setFont(BrandTheme.BUTTON_FONT.deriveFont(Font.BOLD, 14f));
+        button.setFont(BrandTheme.BUTTON_FONT.deriveFont(Font.BOLD, 13f));
         button.setFocusPainted(false);
         button.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
         button.setHorizontalAlignment(SwingConstants.CENTER);
@@ -319,7 +323,7 @@ public class HRDashboard extends JFrame {
 
         NotificationBadgeLabel() {
             super("", SwingConstants.CENTER);
-            setForeground(BrandTheme.NAVY);
+            setForeground(BrandTheme.TEXT);
             setFont(BrandTheme.BUTTON_FONT.deriveFont(Font.BOLD, 11f));
         }
 
@@ -329,7 +333,7 @@ public class HRDashboard extends JFrame {
             g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
             g2.setColor(BrandTheme.GOLD);
             g2.fillOval(0, 0, getWidth() - 1, getHeight() - 1);
-            g2.setColor(BrandTheme.NAVY);
+            g2.setColor(BrandTheme.TEXT);
             g2.drawOval(0, 0, getWidth() - 1, getHeight() - 1);
             g2.dispose();
             super.paintComponent(graphics);

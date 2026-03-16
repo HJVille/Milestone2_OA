@@ -20,6 +20,15 @@ public class AttendanceDAO implements AttendanceInterface {
     private static final String HEADER = "Employee #,Last Name,First Name,Date,Log In,Log Out";
     private static final DateTimeFormatter DATE_FORMAT = DateTimeFormatter.ofPattern("MM/dd/yyyy");
     private static final Logger LOGGER = Logger.getLogger(AttendanceDAO.class.getName());
+    private final Path attendanceFilePath;
+
+    public AttendanceDAO() {
+        this(CsvFilePaths.ATTENDANCE);
+    }
+
+    public AttendanceDAO(Path attendanceFilePath) {
+        this.attendanceFilePath = attendanceFilePath;
+    }
 
     public void loadAttendance(List<Employee> employees,
                                LocalDate startDate,
@@ -115,13 +124,12 @@ public class AttendanceDAO implements AttendanceInterface {
     public List<String[]> loadAttendanceRows() {
 
         List<String[]> rows = new ArrayList<>();
-        Path filePath = CsvFilePaths.ATTENDANCE;
 
-        if (!Files.exists(filePath)) {
+        if (!Files.exists(attendanceFilePath)) {
             return rows;
         }
 
-        try (BufferedReader br = Files.newBufferedReader(filePath)) {
+        try (BufferedReader br = Files.newBufferedReader(attendanceFilePath)) {
 
             String line = br.readLine();
             if (line == null) {
@@ -155,12 +163,61 @@ public class AttendanceDAO implements AttendanceInterface {
         return matches;
     }
 
+    public List<Attendance> loadCompletedAttendanceRecords() {
+
+        return loadCompletedAttendanceRecords(0);
+    }
+
+    public List<Attendance> loadCompletedAttendanceRecords(int employeeNumber) {
+
+        List<Attendance> records = new ArrayList<>();
+
+        for (String[] row : loadAttendanceRows()) {
+            if (row.length < 6) {
+                continue;
+            }
+
+            int currentEmployeeNumber;
+            try {
+                currentEmployeeNumber = Integer.parseInt(row[0].trim());
+            } catch (Exception e) {
+                continue;
+            }
+
+            if (employeeNumber > 0 && currentEmployeeNumber != employeeNumber) {
+                continue;
+            }
+
+            String date = clean(row[3]);
+            String login = clean(row[4]);
+            String logout = clean(row[5]);
+            if (date.isEmpty() || login.isEmpty() || logout.isEmpty()) {
+                continue;
+            }
+
+            try {
+                double logInTime = convertTimeToDouble(login);
+                double logOutTime = convertTimeToDouble(logout);
+                records.add(new Attendance(date, logInTime, logOutTime, 1.0));
+            } catch (Exception e) {
+                LOGGER.log(Level.FINE, "Skipping invalid attendance row.", e);
+            }
+        }
+
+        records.sort(java.util.Comparator.comparing(attendance -> {
+            try {
+                return LocalDate.parse(attendance.getDate(), DATE_FORMAT);
+            } catch (Exception e) {
+                return LocalDate.MIN;
+            }
+        }));
+        return records;
+    }
+
     public void saveAttendanceRows(List<String[]> rows) {
 
-        Path filePath = CsvFilePaths.ATTENDANCE;
-
         try {
-            Path parent = filePath.getParent();
+            Path parent = attendanceFilePath.getParent();
             if (parent != null) {
                 Files.createDirectories(parent);
             }
@@ -170,7 +227,7 @@ public class AttendanceDAO implements AttendanceInterface {
         }
 
         try (BufferedWriter bw = Files.newBufferedWriter(
-                filePath,
+                attendanceFilePath,
                 StandardOpenOption.CREATE,
                 StandardOpenOption.TRUNCATE_EXISTING)) {
 
@@ -194,5 +251,9 @@ public class AttendanceDAO implements AttendanceInterface {
         int minutes = Integer.parseInt(parts[1]);
 
         return Math.round((hours + minutes / 60.0) * 100.0) / 100.0;
+    }
+
+    private String clean(String value) {
+        return value == null ? "" : value.trim().replace("\"", "");
     }
 }

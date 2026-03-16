@@ -1,32 +1,48 @@
 package com.mycompany.motorph.ui;
 
-import com.mycompany.motorph.dao.CsvFilePaths;
+import com.mycompany.motorph.service.AttendanceService;
 import java.awt.BorderLayout;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
-import java.awt.event.ComponentAdapter;
-import java.awt.event.ComponentEvent;
-import java.io.BufferedReader;
-import java.nio.file.Files;
+import java.awt.Font;
 import java.util.ArrayList;
 import java.util.List;
+import javax.swing.BorderFactory;
+import javax.swing.BoxLayout;
+import javax.swing.JButton;
 import javax.swing.JComboBox;
 import javax.swing.JLabel;
-import javax.swing.JPanel;
 import javax.swing.JOptionPane;
+import javax.swing.JPanel;
+import javax.swing.JScrollPane;
 import javax.swing.JTable;
+import javax.swing.JTextField;
+import javax.swing.SwingConstants;
+import javax.swing.table.DefaultTableCellRenderer;
 import javax.swing.table.DefaultTableModel;
 
 public class pnlAttendance extends javax.swing.JPanel {
 
+    private static final String[] DEFAULT_SEARCH_FILTERS = {
+            "Employee ID",
+            "Employee Name"
+    };
+
+    private final AttendanceService attendanceService = new AttendanceService();
     private final List<String[]> attendanceRows = new ArrayList<>();
     private final boolean responsiveLayout;
     private final String[] searchFilterOptions;
-    private JComboBox<String> cmbSearchFilter;
-    private JPanel attendanceHeaderPanel;
+
+    private JLabel lblAttendance;
     private JLabel filterLabel;
     private JLabel searchLabel;
-    private boolean headerResizeListenerAttached;
+    private JComboBox<String> cmbSearchFilter;
+    private JTextField txtSearchAttendance;
+    private JTable tblAttendance;
+    private JScrollPane scrollAttendance;
+    private JButton btnSearchAttendance;
+    private JButton btnViewAttendance;
+    private JButton btnRefreshAttendance;
 
     public pnlAttendance() {
         this(false, null);
@@ -39,248 +55,222 @@ public class pnlAttendance extends javax.swing.JPanel {
     public pnlAttendance(boolean responsiveLayout, String[] searchFilterOptions) {
         this.responsiveLayout = responsiveLayout;
         this.searchFilterOptions = searchFilterOptions == null || searchFilterOptions.length == 0
-                ? null
+                ? DEFAULT_SEARCH_FILTERS.clone()
                 : searchFilterOptions.clone();
         initComponents();
+        reloadAttendance();
+    }
+
+    private void initComponents() {
+        lblAttendance = new JLabel();
+        filterLabel = new JLabel("Search By");
+        searchLabel = new JLabel("Keyword");
+        cmbSearchFilter = new JComboBox<>(searchFilterOptions);
+        txtSearchAttendance = new JTextField(22);
+        btnSearchAttendance = new JButton("Search");
+        btnViewAttendance = new JButton("View");
+        btnRefreshAttendance = new JButton("Refresh");
+        tblAttendance = new JTable(createTableModel());
+        scrollAttendance = new JScrollPane(tblAttendance);
+
         BrandTheme.styleSurface(this);
-        setBorder(javax.swing.BorderFactory.createEmptyBorder(18, 18, 18, 18));
+        setLayout(new BorderLayout(0, 18));
+        setBorder(BorderFactory.createEmptyBorder(18, 18, 18, 18));
+
         BrandTheme.setTitleWithLogo(lblAttendance, "Attendance Record");
         if (responsiveLayout) {
             lblAttendance.setIcon(null);
             lblAttendance.setText("Attendance Record");
         }
-        BrandTheme.styleTable(tblAttendance);
+
+        styleLabel(filterLabel);
+        styleLabel(searchLabel);
+        BrandTheme.styleComboBox(cmbSearchFilter);
         BrandTheme.styleInputField(txtSearchAttendance);
-        BrandTheme.styleScrollPane(scrollAttendance);
         BrandTheme.styleSecondaryButton(btnSearchAttendance);
         BrandTheme.styleSecondaryButton(btnViewAttendance);
         BrandTheme.styleSecondaryButton(btnRefreshAttendance);
-        BrandTheme.styleSecondaryButton(btnImportAttendance);
-        if (responsiveLayout) {
-            rebuildLayout();
-        }
-        reloadAttendance();
-        btnImportAttendance.setEnabled(false);
-    }
+        BrandTheme.styleTable(tblAttendance);
+        BrandTheme.styleScrollPane(scrollAttendance);
 
-    @SuppressWarnings("unchecked")
-    // <editor-fold defaultstate="collapsed" desc="Generated Code">//GEN-BEGIN:initComponents
-    private void initComponents() {
+        cmbSearchFilter.setPreferredSize(new Dimension(170, 36));
+        txtSearchAttendance.setPreferredSize(new Dimension(240, 36));
+        btnSearchAttendance.setPreferredSize(new Dimension(108, 38));
+        btnViewAttendance.setPreferredSize(new Dimension(108, 38));
+        btnRefreshAttendance.setPreferredSize(new Dimension(108, 38));
 
-        lblAttendance = new javax.swing.JLabel();
-        txtSearchAttendance = new javax.swing.JTextField();
-        scrollAttendance = new javax.swing.JScrollPane();
-        tblAttendance = new javax.swing.JTable();
-        btnSearchAttendance = new javax.swing.JButton();
-        btnImportAttendance = new javax.swing.JButton();
-        btnViewAttendance = new javax.swing.JButton();
-        btnRefreshAttendance = new javax.swing.JButton();
-
-        setBackground(new java.awt.Color(255, 255, 255));
-
-        lblAttendance.setFont(new java.awt.Font("Segoe UI", 1, 18)); // NOI18N
-        lblAttendance.setForeground(new java.awt.Color(0, 51, 102));
-        lblAttendance.setText("Attendance Record");
-
-        txtSearchAttendance.addActionListener(this::txtSearchAttendanceActionPerformed);
-
-        tblAttendance.setModel(new javax.swing.table.DefaultTableModel(
-            new Object [][] {
-
-            },
-            new String [] {
-                "Employee ID", "Employee Name", "Date", "Time In", "Time Out", "Total Hours", "Status"
-            }
-        ) {
-            boolean[] canEdit = new boolean [] {
-                false, false, false, false, false, false, false
-            };
-
-            public boolean isCellEditable(int rowIndex, int columnIndex) {
-                return canEdit [columnIndex];
-            }
-        });
-        scrollAttendance.setViewportView(tblAttendance);
-
-        btnSearchAttendance.setText("Search");
-        btnSearchAttendance.addActionListener(this::btnSearchAttendanceActionPerformed);
-
-        btnImportAttendance.setText("Import");
-
-        btnViewAttendance.setText("View");
-        btnViewAttendance.addActionListener(this::btnViewAttendanceActionPerformed);
-
-        btnRefreshAttendance.setText("Refresh");
-        btnRefreshAttendance.addActionListener(this::btnRefreshAttendanceActionPerformed);
-
-        javax.swing.GroupLayout layout = new javax.swing.GroupLayout(this);
-        this.setLayout(layout);
-        layout.setHorizontalGroup(
-            layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(layout.createSequentialGroup()
-                .addGap(40, 40, 40)
-                .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                    .addGroup(layout.createSequentialGroup()
-                        .addComponent(btnImportAttendance)
-                        .addGap(18, 18, 18)
-                        .addComponent(btnViewAttendance)
-                        .addGap(18, 18, 18)
-                        .addComponent(btnRefreshAttendance))
-                    .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                        .addGroup(layout.createSequentialGroup()
-                            .addComponent(lblAttendance)
-                            .addGap(597, 597, 597))
-                        .addGroup(layout.createSequentialGroup()
-                            .addComponent(txtSearchAttendance, javax.swing.GroupLayout.PREFERRED_SIZE, 128, javax.swing.GroupLayout.PREFERRED_SIZE)
-                            .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                            .addComponent(btnSearchAttendance)
-                            .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, 555, javax.swing.GroupLayout.PREFERRED_SIZE))
-                        .addComponent(scrollAttendance, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.PREFERRED_SIZE, 761, javax.swing.GroupLayout.PREFERRED_SIZE)))
-                .addContainerGap(44, Short.MAX_VALUE))
-        );
-        layout.setVerticalGroup(
-            layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(layout.createSequentialGroup()
-                .addGap(42, 42, 42)
-                .addComponent(lblAttendance, javax.swing.GroupLayout.PREFERRED_SIZE, 27, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addGap(18, 18, 18)
-                .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
-                    .addComponent(txtSearchAttendance, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                    .addComponent(btnSearchAttendance))
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
-                .addComponent(scrollAttendance, javax.swing.GroupLayout.PREFERRED_SIZE, 219, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addGap(27, 27, 27)
-                .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
-                    .addComponent(btnImportAttendance)
-                    .addComponent(btnViewAttendance)
-                    .addComponent(btnRefreshAttendance))
-                .addContainerGap(142, Short.MAX_VALUE))
-        );
-    }// </editor-fold>//GEN-END:initComponents
-
-    public final void reloadAttendance() {
-        attendanceRows.clear();
-        try (BufferedReader br = Files.newBufferedReader(CsvFilePaths.ATTENDANCE)) {
-            br.readLine();
-            String line;
-            while ((line = br.readLine()) != null) {
-                String[] data = line.split(",");
-                if (data.length >= 6) {
-                    attendanceRows.add(data);
-                }
-            }
-        } catch (Exception e) {
-            JOptionPane.showMessageDialog(this, "Failed to load attendance: " + e.getMessage());
-        }
-        populateTable(attendanceRows);
-    }
-
-    private void rebuildLayout() {
-        if (cmbSearchFilter == null && searchFilterOptions != null) {
-            cmbSearchFilter = new JComboBox<>(searchFilterOptions);
-            BrandTheme.styleComboBox(cmbSearchFilter);
-            cmbSearchFilter.setFont(BrandTheme.BODY_FONT.deriveFont(13f));
-            cmbSearchFilter.setPreferredSize(new Dimension(160, 34));
-        }
-        if (filterLabel == null) {
-            filterLabel = new JLabel("Filter By:");
-            filterLabel.setFont(BrandTheme.BODY_FONT.deriveFont(13f));
-            filterLabel.setForeground(BrandTheme.TEXT);
-        }
-        if (searchLabel == null) {
-            searchLabel = new JLabel("Search");
-            searchLabel.setFont(BrandTheme.BODY_FONT.deriveFont(13f));
-            searchLabel.setForeground(BrandTheme.TEXT);
-        }
-
-        txtSearchAttendance.setPreferredSize(new Dimension(190, 34));
+        tblAttendance.setRowHeight(30);
         tblAttendance.setFillsViewportHeight(true);
         tblAttendance.setAutoCreateRowSorter(true);
         tblAttendance.setAutoResizeMode(JTable.AUTO_RESIZE_ALL_COLUMNS);
-        configureResponsiveColumns();
+        configureTableColumns();
 
-        removeAll();
-        setLayout(new BorderLayout(0, 16));
+        txtSearchAttendance.addActionListener(this::txtSearchAttendanceActionPerformed);
+        btnSearchAttendance.addActionListener(this::btnSearchAttendanceActionPerformed);
+        btnViewAttendance.addActionListener(this::btnViewAttendanceActionPerformed);
+        btnRefreshAttendance.addActionListener(this::btnRefreshAttendanceActionPerformed);
 
-        attendanceHeaderPanel = new JPanel(new BorderLayout(0, 10));
-        attendanceHeaderPanel.setOpaque(false);
-        updateHeaderLayout();
-
-        add(attendanceHeaderPanel, BorderLayout.NORTH);
-        add(scrollAttendance, BorderLayout.CENTER);
-
-        if (!headerResizeListenerAttached) {
-            addComponentListener(new ComponentAdapter() {
-                @Override
-                public void componentResized(ComponentEvent e) {
-                    updateHeaderLayout();
-                }
-            });
-            headerResizeListenerAttached = true;
-        }
-
-        revalidate();
-        repaint();
+        add(buildHeaderCard(), BorderLayout.NORTH);
+        add(buildTableCard(), BorderLayout.CENTER);
     }
 
-    private void updateHeaderLayout() {
-        if (attendanceHeaderPanel == null) {
-            return;
-        }
+    private DefaultTableModel createTableModel() {
+        return new DefaultTableModel(
+                new Object[][]{},
+                new String[]{
+                        "Employee ID",
+                        "Employee Name",
+                        "Date",
+                        "Time In",
+                        "Time Out",
+                        "Total Hours",
+                        "Status"
+                }
+        ) {
+            @Override
+            public boolean isCellEditable(int row, int column) {
+                return false;
+            }
+        };
+    }
 
-        attendanceHeaderPanel.removeAll();
-        attendanceHeaderPanel.add(lblAttendance, BorderLayout.NORTH);
+    private JPanel buildHeaderCard() {
+        JPanel card = new JPanel(new BorderLayout(0, 12));
+        BrandTheme.styleCardSurface(card);
+
+        JPanel controls = new JPanel();
+        controls.setOpaque(false);
+        controls.setLayout(new BoxLayout(controls, BoxLayout.Y_AXIS));
 
         JPanel searchRow = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 0));
         searchRow.setOpaque(false);
-
-        if (cmbSearchFilter != null) {
-            if (getWidth() <= 860) {
-                txtSearchAttendance.setPreferredSize(new Dimension(160, 34));
-                cmbSearchFilter.setPreferredSize(new Dimension(150, 34));
-            } else {
-                txtSearchAttendance.setPreferredSize(new Dimension(190, 34));
-                cmbSearchFilter.setPreferredSize(new Dimension(160, 34));
-            }
-            searchRow.add(filterLabel);
-            searchRow.add(cmbSearchFilter);
-        }
-
+        searchRow.add(filterLabel);
+        searchRow.add(cmbSearchFilter);
         searchRow.add(searchLabel);
         searchRow.add(txtSearchAttendance);
         searchRow.add(btnSearchAttendance);
 
         JPanel actionRow = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 0));
         actionRow.setOpaque(false);
-        if (cmbSearchFilter == null) {
-            actionRow.add(btnImportAttendance);
-        }
         actionRow.add(btnViewAttendance);
         actionRow.add(btnRefreshAttendance);
 
-        JPanel controls = new JPanel(new BorderLayout(0, 8));
-        controls.setOpaque(false);
-        controls.add(searchRow, BorderLayout.NORTH);
-        controls.add(actionRow, BorderLayout.CENTER);
+        controls.add(searchRow);
+        controls.add(javax.swing.Box.createVerticalStrut(10));
+        controls.add(actionRow);
 
-        attendanceHeaderPanel.add(controls, BorderLayout.CENTER);
-        attendanceHeaderPanel.revalidate();
-        attendanceHeaderPanel.repaint();
+        card.add(lblAttendance, BorderLayout.NORTH);
+        card.add(controls, BorderLayout.CENTER);
+        return card;
     }
 
-    private void configureResponsiveColumns() {
-        if (tblAttendance.getColumnModel().getColumnCount() < 7) {
+    private JPanel buildTableCard() {
+        JPanel card = new JPanel(new BorderLayout(0, 12));
+        BrandTheme.styleCardSurface(card);
+
+        JLabel tableTitle = new JLabel("Attendance Log");
+        tableTitle.setFont(BrandTheme.BUTTON_FONT.deriveFont(Font.BOLD, 16f));
+        tableTitle.setForeground(BrandTheme.PRIMARY_BLUE);
+
+        card.add(tableTitle, BorderLayout.NORTH);
+        card.add(scrollAttendance, BorderLayout.CENTER);
+        return card;
+    }
+
+    private void styleLabel(JLabel label) {
+        label.setFont(BrandTheme.BODY_FONT.deriveFont(Font.PLAIN, 13f));
+        label.setForeground(BrandTheme.TEXT);
+    }
+
+    private void configureTableColumns() {
+        DefaultTableCellRenderer centeredRenderer = new DefaultTableCellRenderer();
+        centeredRenderer.setHorizontalAlignment(SwingConstants.CENTER);
+
+        DefaultTableCellRenderer rightAlignedRenderer = new DefaultTableCellRenderer();
+        rightAlignedRenderer.setHorizontalAlignment(SwingConstants.RIGHT);
+
+        DefaultTableCellRenderer statusRenderer = new DefaultTableCellRenderer() {
+            @Override
+            public java.awt.Component getTableCellRendererComponent(JTable table,
+                                                                    Object value,
+                                                                    boolean isSelected,
+                                                                    boolean hasFocus,
+                                                                    int row,
+                                                                    int column) {
+                java.awt.Component component = super.getTableCellRendererComponent(
+                        table,
+                        value,
+                        isSelected,
+                        hasFocus,
+                        row,
+                        column
+                );
+                setHorizontalAlignment(SwingConstants.CENTER);
+                if (!isSelected && value != null) {
+                    String status = value.toString();
+                    component.setForeground("Under Time".equalsIgnoreCase(status)
+                            ? BrandTheme.MOTORPH_RED
+                            : BrandTheme.TEAL);
+                    component.setBackground(row % 2 == 0 ? BrandTheme.INPUT_BG : BrandTheme.TABLE_ALT);
+                }
+                return component;
+            }
+        };
+
+        tblAttendance.getColumnModel().getColumn(0).setPreferredWidth(110);
+        tblAttendance.getColumnModel().getColumn(1).setPreferredWidth(220);
+        tblAttendance.getColumnModel().getColumn(2).setPreferredWidth(120);
+        tblAttendance.getColumnModel().getColumn(3).setPreferredWidth(95);
+        tblAttendance.getColumnModel().getColumn(4).setPreferredWidth(95);
+        tblAttendance.getColumnModel().getColumn(5).setPreferredWidth(110);
+        tblAttendance.getColumnModel().getColumn(6).setPreferredWidth(110);
+
+        tblAttendance.getColumnModel().getColumn(0).setCellRenderer(centeredRenderer);
+        tblAttendance.getColumnModel().getColumn(2).setCellRenderer(centeredRenderer);
+        tblAttendance.getColumnModel().getColumn(3).setCellRenderer(centeredRenderer);
+        tblAttendance.getColumnModel().getColumn(4).setCellRenderer(centeredRenderer);
+        tblAttendance.getColumnModel().getColumn(5).setCellRenderer(rightAlignedRenderer);
+        tblAttendance.getColumnModel().getColumn(6).setCellRenderer(statusRenderer);
+    }
+
+    public final void reloadAttendance() {
+        attendanceRows.clear();
+        attendanceRows.addAll(attendanceService.getAllAttendanceRows());
+        applySearchFilter();
+    }
+
+    private void applySearchFilter() {
+        String query = txtSearchAttendance.getText().trim().toLowerCase();
+        if (query.isEmpty()) {
+            populateTable(attendanceRows);
             return;
         }
 
-        tblAttendance.getTableHeader().setResizingAllowed(true);
-        tblAttendance.getColumnModel().getColumn(0).setPreferredWidth(110);
-        tblAttendance.getColumnModel().getColumn(1).setPreferredWidth(190);
-        tblAttendance.getColumnModel().getColumn(2).setPreferredWidth(125);
-        tblAttendance.getColumnModel().getColumn(3).setPreferredWidth(90);
-        tblAttendance.getColumnModel().getColumn(4).setPreferredWidth(90);
-        tblAttendance.getColumnModel().getColumn(5).setPreferredWidth(100);
-        tblAttendance.getColumnModel().getColumn(6).setPreferredWidth(110);
+        List<String[]> filtered = new ArrayList<>();
+        String filterType = String.valueOf(cmbSearchFilter.getSelectedItem());
+        for (String[] row : attendanceRows) {
+            String employeeName = row[2] + " " + row[1];
+            String date = row[3];
+            String status = computeHours(row[4], row[5]) >= 8 ? "Complete" : "Under Time";
+
+            String candidate;
+            if ("Employee ID".equalsIgnoreCase(filterType)) {
+                candidate = row[0];
+            } else if ("Employee Name".equalsIgnoreCase(filterType)) {
+                candidate = employeeName;
+            } else if ("Date".equalsIgnoreCase(filterType)) {
+                candidate = date;
+            } else if ("Status".equalsIgnoreCase(filterType)) {
+                candidate = status;
+            } else {
+                candidate = String.join(" ", row) + " " + status;
+            }
+
+            if (candidate.toLowerCase().contains(query)) {
+                filtered.add(row);
+            }
+        }
+        populateTable(filtered);
     }
 
     private void populateTable(List<String[]> rows) {
@@ -289,7 +279,15 @@ public class pnlAttendance extends javax.swing.JPanel {
         for (String[] row : rows) {
             double totalHours = computeHours(row[4], row[5]);
             String status = totalHours >= 8 ? "Complete" : "Under Time";
-            model.addRow(new Object[]{row[0], row[2] + " " + row[1], row[3], row[4], row[5], totalHours, status});
+            model.addRow(new Object[]{
+                    row[0],
+                    row[2] + " " + row[1],
+                    row[3],
+                    row[4],
+                    row[5],
+                    String.format("%.2f", totalHours),
+                    status
+            });
         }
     }
 
@@ -305,57 +303,30 @@ public class pnlAttendance extends javax.swing.JPanel {
         }
     }
 
-    private void txtSearchAttendanceActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_txtSearchAttendanceActionPerformed
+    private void txtSearchAttendanceActionPerformed(java.awt.event.ActionEvent evt) {
         btnSearchAttendanceActionPerformed(evt);
-    }//GEN-LAST:event_txtSearchAttendanceActionPerformed
+    }
 
-    private void btnSearchAttendanceActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnSearchAttendanceActionPerformed
-        String query = txtSearchAttendance.getText().trim().toLowerCase();
-        if (query.isEmpty()) {
-            populateTable(attendanceRows);
-            return;
-        }
-        List<String[]> filtered = new ArrayList<>();
-        String filterType = cmbSearchFilter == null
-                ? ""
-                : String.valueOf(cmbSearchFilter.getSelectedItem());
-        for (String[] row : attendanceRows) {
-            String employeeName = row[2] + " " + row[1];
-            String date = row[3];
-            String status = computeHours(row[4], row[5]) >= 8 ? "Complete" : "Under Time";
-            String candidate;
-            if ("Employee ID".equalsIgnoreCase(filterType)) {
-                candidate = row[0];
-            } else if ("Employee Name".equalsIgnoreCase(filterType)) {
-                candidate = employeeName;
-            } else if ("Date".equalsIgnoreCase(filterType)) {
-                candidate = date;
-            } else if ("Status".equalsIgnoreCase(filterType)) {
-                candidate = status;
-            } else {
-                candidate = String.join(" ", row) + " " + status;
-            }
-            if (candidate.toLowerCase().contains(query)) {
-                filtered.add(row);
-            }
-        }
-        populateTable(filtered);
-    }//GEN-LAST:event_btnSearchAttendanceActionPerformed
+    private void btnSearchAttendanceActionPerformed(java.awt.event.ActionEvent evt) {
+        applySearchFilter();
+    }
 
     private void btnViewAttendanceActionPerformed(java.awt.event.ActionEvent evt) {
-        int row = tblAttendance.getSelectedRow();
-        if (row < 0) {
+        int selectedRow = tblAttendance.getSelectedRow();
+        if (selectedRow < 0) {
             JOptionPane.showMessageDialog(this, "Select an attendance row first.");
             return;
         }
+
+        int modelRow = tblAttendance.convertRowIndexToModel(selectedRow);
         JOptionPane.showMessageDialog(
                 this,
-                "Employee ID: " + tblAttendance.getValueAt(row, 0)
-                + "\nEmployee Name: " + tblAttendance.getValueAt(row, 1)
-                + "\nDate: " + tblAttendance.getValueAt(row, 2)
-                + "\nTime In: " + tblAttendance.getValueAt(row, 3)
-                + "\nTime Out: " + tblAttendance.getValueAt(row, 4)
-                + "\nTotal Hours: " + tblAttendance.getValueAt(row, 5),
+                "Employee ID: " + tblAttendance.getModel().getValueAt(modelRow, 0)
+                + "\nEmployee Name: " + tblAttendance.getModel().getValueAt(modelRow, 1)
+                + "\nDate: " + tblAttendance.getModel().getValueAt(modelRow, 2)
+                + "\nTime In: " + tblAttendance.getModel().getValueAt(modelRow, 3)
+                + "\nTime Out: " + tblAttendance.getModel().getValueAt(modelRow, 4)
+                + "\nTotal Hours: " + tblAttendance.getModel().getValueAt(modelRow, 5),
                 "Attendance Details",
                 JOptionPane.INFORMATION_MESSAGE
         );
@@ -364,15 +335,4 @@ public class pnlAttendance extends javax.swing.JPanel {
     private void btnRefreshAttendanceActionPerformed(java.awt.event.ActionEvent evt) {
         reloadAttendance();
     }
-
-    // Variables declaration - do not modify//GEN-BEGIN:variables
-    private javax.swing.JButton btnImportAttendance;
-    private javax.swing.JButton btnRefreshAttendance;
-    private javax.swing.JButton btnSearchAttendance;
-    private javax.swing.JButton btnViewAttendance;
-    private javax.swing.JLabel lblAttendance;
-    private javax.swing.JScrollPane scrollAttendance;
-    private javax.swing.JTable tblAttendance;
-    private javax.swing.JTextField txtSearchAttendance;
-    // End of variables declaration//GEN-END:variables
 }

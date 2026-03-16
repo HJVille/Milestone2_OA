@@ -9,16 +9,48 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
+import java.time.Clock;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
+import java.util.Objects;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
 public class AuthService {
 
     private static final Logger LOGGER = Logger.getLogger(AuthService.class.getName());
-    private final UserDAO userRepository = new UserDAO();
+    private final UserDAO userRepository;
+    private final Path employeesPath;
+    private final Path auditPath;
+    private final Clock clock;
+    private final PasswordHashService passwordHashService;
+
+    public AuthService() {
+        this(
+                new UserDAO(),
+                CsvFilePaths.EMPLOYEES,
+                CsvFilePaths.resolve("password_audit.csv"),
+                AppClock.clock(),
+                new PasswordHashService()
+        );
+    }
+
+    public AuthService(UserDAO userRepository, Path employeesPath, Path auditPath, Clock clock) {
+        this(userRepository, employeesPath, auditPath, clock, new PasswordHashService());
+    }
+
+    public AuthService(UserDAO userRepository,
+                       Path employeesPath,
+                       Path auditPath,
+                       Clock clock,
+                       PasswordHashService passwordHashService) {
+        this.userRepository = Objects.requireNonNull(userRepository, "userRepository");
+        this.employeesPath = Objects.requireNonNull(employeesPath, "employeesPath");
+        this.auditPath = Objects.requireNonNull(auditPath, "auditPath");
+        this.clock = Objects.requireNonNull(clock, "clock");
+        this.passwordHashService = Objects.requireNonNull(passwordHashService, "passwordHashService");
+    }
 
     public User login(String username, String password, List<User> users) {
         return login(username, password, users, 1);
@@ -26,22 +58,27 @@ public class AuthService {
 
     public User login(String username, String password, List<User> users, int attempt) {
         for (User user : users) {
-            if (user.getUsername().equals(username) && user.getPassword().equals(password)) {
-                return user;
+            if (!user.getUsername().equals(username)) {
+                continue;
             }
+            if (!matchesStoredPassword(user, password)) {
+                continue;
+            }
+            migratePasswordIfNeeded(user, password, users);
+            return user;
         }
         return null;
     }
 
     public boolean changePassword(User user, String oldPassword, String newPassword, List<User> users) {
-        if (!user.getPassword().equals(oldPassword)) {
+        if (!matchesSuppliedCurrentPassword(user, oldPassword)) {
             return false;
         }
-        if (isBlank(newPassword) || newPassword.equals(oldPassword)) {
+        if (isBlank(newPassword) || matchesStoredPassword(user, newPassword)) {
             return false;
         }
 
-        user.setPassword(newPassword);
+        user.setPassword(passwordHashService.hash(newPassword));
         userRepository.saveUsers(users);
         recordPasswordChange(user.getUsername(), "CHANGE_PASSWORD");
         return true;
@@ -57,7 +94,7 @@ public class AuthService {
                                                   String newPassword,
                                                   List<User> users) {
         User targetUser = findEmployeeUser(employeeNumber, users);
-        if (targetUser == null || isBlank(newPassword) || newPassword.equals(targetUser.getPassword())) {
+        if (targetUser == null || isBlank(newPassword) || matchesStoredPassword(targetUser, newPassword)) {
             return false;
         }
 
@@ -66,7 +103,7 @@ public class AuthService {
             return false;
         }
 
-        targetUser.setPassword(newPassword);
+        targetUser.setPassword(passwordHashService.hash(newPassword));
         userRepository.saveUsers(users);
         recordPasswordChange(targetUser.getUsername(), "FORGOT_PASSWORD");
         return true;
@@ -85,7 +122,10 @@ public class AuthService {
             }
         }
 
-        if (targetUser == null || !"EMPLOYEE".equals(targetUser.getRole())) {
+        if (targetUser == null
+                || !"EMPLOYEE".equals(targetUser.getRole())
+                || isBlank(newPassword)
+                || matchesStoredPassword(targetUser, newPassword)) {
             return false;
         }
 
@@ -107,7 +147,7 @@ public class AuthService {
             return false;
         }
 
-        targetUser.setPassword(newPassword);
+        targetUser.setPassword(passwordHashService.hash(newPassword));
         userRepository.saveUsers(users);
         recordPasswordChange(targetUser.getUsername(), "FORGOT_PASSWORD");
         return true;
@@ -117,7 +157,28 @@ public class AuthService {
         if (user == null) {
             return false;
         }
-        return user.getPassword().equals("emp" + user.getEmployeeNumber());
+        return matchesStoredPassword(user, "emp" + user.getEmployeeNumber());
+    }
+
+    private boolean matchesStoredPassword(User user, String candidatePassword) {
+        return user != null
+                && !isBlank(candidatePassword)
+                && passwordHashService.matches(candidatePassword, user.getPassword());
+    }
+
+    private boolean matchesSuppliedCurrentPassword(User user, String suppliedPassword) {
+        return user != null
+                && !isBlank(suppliedPassword)
+                && (user.getPassword().equals(suppliedPassword) || matchesStoredPassword(user, suppliedPassword));
+    }
+
+    private void migratePasswordIfNeeded(User user, String rawPassword, List<User> users) {
+        if (user == null || isBlank(rawPassword) || passwordHashService.isHashed(user.getPassword())) {
+            return;
+        }
+
+        user.setPassword(passwordHashService.hash(rawPassword));
+        userRepository.saveUsers(users);
     }
 
     private User findEmployeeUser(int employeeNumber, List<User> users) {
@@ -130,7 +191,7 @@ public class AuthService {
     }
 
     private EmployeeIdentityRecord findEmployeeIdentity(int employeeNumber) {
-        try (BufferedReader reader = Files.newBufferedReader(CsvFilePaths.EMPLOYEES)) {
+        try (BufferedReader reader = Files.newBufferedReader(employeesPath)) {
             reader.readLine();
             String line;
             while ((line = reader.readLine()) != null) {
@@ -165,7 +226,6 @@ public class AuthService {
     }
 
     private void recordPasswordChange(String username, String action) {
-        Path auditPath = CsvFilePaths.resolve("password_audit.csv");
         try {
             if (auditPath.getParent() != null) {
                 Files.createDirectories(auditPath.getParent());
@@ -181,7 +241,7 @@ public class AuthService {
                     writer.newLine();
                 }
 
-                writer.write(LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME)
+                writer.write(LocalDateTime.now(clock).format(DateTimeFormatter.ISO_LOCAL_DATE_TIME)
                         + "," + username + "," + action);
                 writer.newLine();
             }
