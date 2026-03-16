@@ -53,18 +53,17 @@ The codebase follows the required layered architecture:
 
 Key runtime data files:
 
-- [CSVs/employees.csv](/Users/heartvillegas/NetBeansProjects/MotorPH/CSVs/employees.csv)
-- [CSVs/users.csv](/Users/heartvillegas/NetBeansProjects/MotorPH/CSVs/users.csv)
-- [CSVs/attendance.csv](/Users/heartvillegas/NetBeansProjects/MotorPH/CSVs/attendance.csv)
-- [CSVs/leave_requests.csv](/Users/heartvillegas/NetBeansProjects/MotorPH/CSVs/leave_requests.csv)
-- [CSVs/payroll_records.csv](/Users/heartvillegas/NetBeansProjects/MotorPH/CSVs/payroll_records.csv)
-- [notifications.csv](/Users/heartvillegas/NetBeansProjects/MotorPH/notifications.csv)
-- [password_audit.csv](/Users/heartvillegas/NetBeansProjects/MotorPH/password_audit.csv)
+- [CSVs/employees.csv](CSVs/employees.csv)
+- [CSVs/users.csv](CSVs/users.csv)
+- [CSVs/attendance.csv](CSVs/attendance.csv)
+- [CSVs/leave_requests.csv](CSVs/leave_requests.csv)
+- [CSVs/payroll_records.csv](CSVs/payroll_records.csv)
+- `notifications.csv` and `password_audit.csv` are runtime-generated files created in the project root when the system is used
 
 Entry point:
 
 - Main class: `com.mycompany.motorph.main.MotorPH`
-- Source file: [MotorPH.java](/Users/heartvillegas/NetBeansProjects/MotorPH/src/main/java/com/mycompany/motorph/main/MotorPH.java)
+- Source file: [MotorPH.java](src/main/java/com/mycompany/motorph/main/MotorPH.java)
 
 ## 4. OOP And Architecture Notes
 
@@ -115,7 +114,7 @@ javac --release 21 -d /tmp/motorph-classes $(find src/main/java -name '*.java')
 
 Important:
 
-- Passwords are stored as hashes in [users.csv](/Users/heartvillegas/NetBeansProjects/MotorPH/CSVs/users.csv), so the CSV no longer shows readable passwords.
+- Passwords are stored as hashes in [users.csv](CSVs/users.csv), so the CSV no longer shows readable passwords.
 - The exact checker credentials are documented here for project evaluation.
 - Employee accounts still follow the default password pattern unless changed through the system.
 
@@ -131,6 +130,10 @@ Use these exact credentials for role checking:
 | `admin` | `admin123` | `ADMIN` | Opens the Admin dashboard |
 
 These passwords were normalized for project checking and can still be changed later through the IT account-management panel.
+
+Privileged account note:
+
+- `HR`, `FINANCE`, `IT`, and `ADMIN` checker accounts are not employee-linked in the current seed data, so their `employeeNumber` value in `users.csv` is `0`.
 
 ### Employee Accounts
 
@@ -150,44 +153,7 @@ Examples:
 10034 / emp10034
 ```
 
-Employee accounts available in the seed data:
-
-```text
-10001
-10002
-10003
-10004
-10005
-10006
-10007
-10008
-10009
-10010
-10011
-10012
-10013
-10014
-10015
-10016
-10017
-10018
-10019
-10020
-10021
-10022
-10023
-10024
-10025
-10026
-10027
-10028
-10029
-10030
-10031
-10032
-10033
-10034
-```
+Employee seed accounts cover employee numbers `10001` to `10034`.
 
 Default-password behavior:
 
@@ -308,7 +274,7 @@ Typical admin flow:
 
 Current password behavior:
 
-- passwords are stored hashed in [users.csv](/Users/heartvillegas/NetBeansProjects/MotorPH/CSVs/users.csv)
+- passwords are stored hashed in [users.csv](CSVs/users.csv)
 - privileged account checker passwords are listed in this README
 - employee checking can use the default `emp<employeeNumber>` password pattern
 - old plaintext rows are supported by migration-safe logic
@@ -358,7 +324,7 @@ Validation covered in the system includes:
 Security-related notes:
 
 - `users.csv` no longer stores readable passwords
-- password audit events are recorded in [password_audit.csv](/Users/heartvillegas/NetBeansProjects/MotorPH/password_audit.csv)
+- password audit events are written to the runtime-generated `password_audit.csv` file when password actions occur
 - privileged roles do not use self-service password reset
 
 ## 11. Testing And Verification
@@ -369,9 +335,7 @@ Build verification used for the project:
 javac --release 21 -d /tmp/motorph-classes $(find src/main/java -name '*.java')
 ```
 
-Automated test source is available under:
-
-- `src/test/java`
+Automated test files were used during development and are not included in the final submission branch.
 
 ## 12. Notes For Project Checking
 
@@ -379,7 +343,7 @@ Automated test source is available under:
 - Build the project before running.
 - If checking employee accounts, use the default pattern `employeeNumber / emp<employeeNumber>`.
 - If checking HR, Finance, IT, or Admin accounts, use the credentials listed in Section 6.
-- The CSV now stores password hashes, so readable passwords are no longer shown in [users.csv](/Users/heartvillegas/NetBeansProjects/MotorPH/CSVs/users.csv).
+- The CSV now stores password hashes, so readable passwords are no longer shown in [users.csv](CSVs/users.csv).
 
 ## 13. Repository
 
