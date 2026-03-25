@@ -41,32 +41,8 @@ public class PayrollComputationService {
     public EmployeePayrollSummary computeSummary(Employee employee,
                                                  PayrollPeriodOption period,
                                                  List<Attendance> attendanceRows) {
-        boolean monthlyPeriod = period.getType() == PayrollPeriodOption.Type.MONTHLY;
         boolean secondCutoff = isSecondSemiMonthlyCutoff(period);
-        boolean includeAllowances = monthlyPeriod || secondCutoff;
-        boolean includeDeductions = monthlyPeriod || secondCutoff;
-
-        double basicSalary = monthlyPeriod
-                ? round(employee.getBasicSalary())
-                : round(employee.getBasicSalary() / 2.0);
-        double riceSubsidy = includeAllowances ? round(employee.getRiceSubsidy()) : 0.0;
-        double phoneAllowance = includeAllowances ? round(employee.getPhoneAllowance()) : 0.0;
-        double clothingAllowance = includeAllowances ? round(employee.getClothingAllowance()) : 0.0;
-        double grossSalary = round(basicSalary + riceSubsidy + phoneAllowance + clothingAllowance);
-
-        double monthlySalary = employee.getBasicSalary();
-        double fullSss = includeDeductions ? round(sssDeduction.compute(monthlySalary)) : 0.0;
-        double fullPhilhealth = includeDeductions ? round(philHealthDeduction.compute(monthlySalary)) : 0.0;
-        double fullPagibig = includeDeductions ? round(pagibigDeduction.compute(monthlySalary)) : 0.0;
-        double taxableIncome = monthlySalary - fullSss - fullPhilhealth - fullPagibig;
-        double fullTax = includeDeductions ? round(taxDeduction.compute(taxableIncome)) : 0.0;
-
-        double sss = fullSss;
-        double philhealth = fullPhilhealth;
-        double pagibig = fullPagibig;
-        double withholdingTax = fullTax;
-        double totalDeductions = round(sss + philhealth + pagibig + withholdingTax);
-        double netSalary = round(grossSalary - totalDeductions);
+        boolean payableAllowanceCutoff = period.getType() == PayrollPeriodOption.Type.MONTHLY || secondCutoff;
 
         Set<LocalDate> daysWorked = new LinkedHashSet<>();
         double attendanceHours = 0.0;
@@ -74,6 +50,30 @@ public class PayrollComputationService {
             daysWorked.add(parseAttendanceDate(attendance));
             attendanceHours += attendance.getHoursWorked();
         }
+
+        double basicSalary = round(attendanceHours * employee.getHourlyRate());
+        boolean includeAllowances = payableAllowanceCutoff && basicSalary > 0.0;
+        boolean includeDeductions = payableAllowanceCutoff;
+
+        double riceSubsidy = includeAllowances ? round(employee.getRiceSubsidy()) : 0.0;
+        double phoneAllowance = includeAllowances ? round(employee.getPhoneAllowance()) : 0.0;
+        double clothingAllowance = includeAllowances ? round(employee.getClothingAllowance()) : 0.0;
+        double grossSalary = round(basicSalary + riceSubsidy + phoneAllowance + clothingAllowance);
+
+        double sss = 0.0;
+        double philhealth = 0.0;
+        double pagibig = 0.0;
+        double withholdingTax = 0.0;
+        if (includeDeductions && basicSalary > 0.0) {
+            sss = round(sssDeduction.compute(basicSalary));
+            philhealth = round(philHealthDeduction.compute(basicSalary));
+            pagibig = round(pagibigDeduction.compute(basicSalary));
+            double taxableIncome = Math.max(0.0, basicSalary - sss - philhealth - pagibig);
+            withholdingTax = round(taxDeduction.compute(taxableIncome));
+        }
+
+        double totalDeductions = round(Math.min(grossSalary, sss + philhealth + pagibig + withholdingTax));
+        double netSalary = round(grossSalary - totalDeductions);
 
         return new EmployeePayrollSummary(
                 employee.getEmployeeNumber(),

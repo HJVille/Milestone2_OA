@@ -204,7 +204,8 @@ public class pnlDefaultPassword extends javax.swing.JPanel {
             return;
         }
 
-        boolean updated = authService.changePassword(user, user.getPassword(), newPassword, users);
+        String currentDefaultPassword = user == null ? "" : "emp" + user.getEmployeeNumber();
+        boolean updated = authService.changePassword(user, currentDefaultPassword, newPassword, users);
         if (!updated) {
             JOptionPane.showMessageDialog(
                     this,

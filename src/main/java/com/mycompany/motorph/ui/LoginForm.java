@@ -2,6 +2,7 @@ package com.mycompany.motorph.ui;
 
 import com.mycompany.motorph.model.User;
 import com.mycompany.motorph.service.AuthService;
+import com.mycompany.motorph.service.EmployeeValidationService;
 import com.mycompany.motorph.service.NotificationService;
 import com.mycompany.motorph.service.UserAccountService;
 import java.awt.BasicStroke;
@@ -37,6 +38,10 @@ import javax.swing.SwingConstants;
 import javax.swing.SwingUtilities;
 import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
+import javax.swing.text.AbstractDocument;
+import javax.swing.text.AttributeSet;
+import javax.swing.text.BadLocationException;
+import javax.swing.text.DocumentFilter;
 
 public class LoginForm extends javax.swing.JFrame {
 
@@ -44,6 +49,7 @@ public class LoginForm extends javax.swing.JFrame {
     private static final int MAX_ATTEMPTS = 5;
 
     private final AuthService authService = new AuthService();
+    private final EmployeeValidationService employeeValidationService = new EmployeeValidationService();
     private final UserAccountService userAccountService = new UserAccountService();
     private final NotificationService notificationService = new NotificationService();
     private int attempts;
@@ -506,7 +512,7 @@ public class LoginForm extends javax.swing.JFrame {
         String role = matchedUser.getRole() == null ? "" : matchedUser.getRole().trim().toUpperCase();
         switch (role) {
             case "EMPLOYEE":
-                showEmployeeResetDialog(users);
+                showEmployeeResetDialog(users, matchedUser);
                 break;
             case "HR":
                 JOptionPane.showMessageDialog(this, "Contact Administrator.", "Forgot Password", JOptionPane.INFORMATION_MESSAGE);
@@ -540,8 +546,10 @@ public class LoginForm extends javax.swing.JFrame {
         SwingUtilities.invokeLater(() -> txtUsername.requestFocusInWindow());
     }
 
-    private void showEmployeeResetDialog(List<User> users) {
-        JTextField employeeNumberField = new JTextField(txtUsername.getText().trim());
+    private void showEmployeeResetDialog(List<User> users, User matchedUser) {
+        JTextField employeeNumberField = new JTextField(matchedUser == null
+                ? ""
+                : String.valueOf(matchedUser.getEmployeeNumber()));
         JTextField firstNameField = new JTextField();
         JTextField lastNameField = new JTextField();
         JTextField sssField = new JTextField();
@@ -559,6 +567,19 @@ public class LoginForm extends javax.swing.JFrame {
             field.setPreferredSize(new Dimension(220, 30));
             BrandTheme.styleInputField((JTextField) field);
         }
+        employeeNumberField.setEditable(false);
+        employeeNumberField.setFocusable(false);
+        sssField.setToolTipText("Format: ##-#######-#");
+        philhealthField.setToolTipText("Format: ##-#########-#");
+        tinField.setToolTipText("Format: ###-###-###-###");
+        pagibigField.setToolTipText("Format: ####-####-####");
+
+        applyLetterOnlyFilter(firstNameField);
+        applyLetterOnlyFilter(lastNameField);
+        applyGroupedDigitsFilter(sssField, 2, 7, 1);
+        applyGroupedDigitsFilter(philhealthField, 2, 9, 1);
+        applyGroupedDigitsFilter(tinField, 3, 3, 3, 3);
+        applyGroupedDigitsFilter(pagibigField, 4, 4, 4);
 
         JPanel panel = new JPanel(new GridBagLayout());
         panel.setBackground(BrandTheme.IVORY);
@@ -570,10 +591,10 @@ public class LoginForm extends javax.swing.JFrame {
         addResetField(panel, gbc, "Employee ID Number", employeeNumberField);
         addResetField(panel, gbc, "First Name", firstNameField);
         addResetField(panel, gbc, "Last Name", lastNameField);
-        addResetField(panel, gbc, "SSS Number", sssField);
-        addResetField(panel, gbc, "PhilHealth Number", philhealthField);
-        addResetField(panel, gbc, "TIN", tinField);
-        addResetField(panel, gbc, "Pag-IBIG Number", pagibigField);
+        addResetField(panel, gbc, "SSS Number (##-#######-#)", sssField);
+        addResetField(panel, gbc, "PhilHealth Number (##-#########-#)", philhealthField);
+        addResetField(panel, gbc, "TIN (###-###-###-###)", tinField);
+        addResetField(panel, gbc, "Pag-IBIG Number (####-####-####)", pagibigField);
         addResetField(panel, gbc, "New Password", newPasswordField);
         addResetField(panel, gbc, "Confirm Password", confirmPasswordField);
 
@@ -625,6 +646,12 @@ public class LoginForm extends javax.swing.JFrame {
             return;
         }
 
+        String validationMessage = validateEmployeeRecoveryInputs(firstName, lastName, sss, philhealth, tin, pagibig);
+        if (validationMessage != null) {
+            JOptionPane.showMessageDialog(this, validationMessage, "Forgot Password", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+
         boolean resetSuccessful = authService.resetPasswordWithGovernmentIds(
                 employeeNumber,
                 firstName,
@@ -673,6 +700,101 @@ public class LoginForm extends javax.swing.JFrame {
         gbc.weightx = 1.0;
         panel.add(field, gbc);
         gbc.gridy++;
+    }
+
+    private String validateEmployeeRecoveryInputs(String firstName,
+                                                  String lastName,
+                                                  String sss,
+                                                  String philhealth,
+                                                  String tin,
+                                                  String pagibig) {
+        String firstNameMessage = employeeValidationService.validatePersonNameInput(firstName);
+        if (firstNameMessage != null) {
+            return "First Name: " + firstNameMessage;
+        }
+
+        String lastNameMessage = employeeValidationService.validatePersonNameInput(lastName);
+        if (lastNameMessage != null) {
+            return "Last Name: " + lastNameMessage;
+        }
+
+        String sssMessage = employeeValidationService.validateSssInput(sss);
+        if (sssMessage != null) {
+            return "SSS Number: " + sssMessage;
+        }
+
+        String philhealthMessage = employeeValidationService.validatePhilhealthInput(philhealth);
+        if (philhealthMessage != null) {
+            return "PhilHealth Number: " + philhealthMessage;
+        }
+
+        String tinMessage = employeeValidationService.validateTinInput(tin);
+        if (tinMessage != null) {
+            return "TIN: " + tinMessage;
+        }
+
+        String pagibigMessage = employeeValidationService.validatePagibigInput(pagibig);
+        if (pagibigMessage != null) {
+            return "Pag-IBIG Number: " + pagibigMessage;
+        }
+
+        return null;
+    }
+
+    private void applyLetterOnlyFilter(JTextField field) {
+        ((AbstractDocument) field.getDocument()).setDocumentFilter(new CharacterConstraintFilter(this::matchesAllowedNameInput));
+    }
+
+    private void applyGroupedDigitsFilter(JTextField field, int... groups) {
+        ((AbstractDocument) field.getDocument()).setDocumentFilter(new GroupedDigitsFilter(groups));
+    }
+
+    private boolean matchesAllowedNameInput(String value) {
+        if (value == null || value.isEmpty()) {
+            return true;
+        }
+        for (int index = 0; index < value.length(); index++) {
+            char current = value.charAt(index);
+            if (Character.isLetter(current) || Character.isWhitespace(current)) {
+                continue;
+            }
+            return false;
+        }
+        return true;
+    }
+
+    private String normalizeDigitsOnly(String value) {
+        if (value == null || value.isEmpty()) {
+            return "";
+        }
+
+        StringBuilder digits = new StringBuilder();
+        for (int index = 0; index < value.length(); index++) {
+            char current = value.charAt(index);
+            if (Character.isDigit(current)) {
+                digits.append(current);
+            }
+        }
+        return digits.toString();
+    }
+
+    private String formatGroupedDigits(String value, int... groups) {
+        String digits = normalizeDigitsOnly(value);
+        if (digits.isEmpty()) {
+            return "";
+        }
+
+        StringBuilder formatted = new StringBuilder();
+        int offset = 0;
+        for (int index = 0; index < groups.length && offset < digits.length(); index++) {
+            if (formatted.length() > 0) {
+                formatted.append("-");
+            }
+            int end = Math.min(offset + groups[index], digits.length());
+            formatted.append(digits, offset, end);
+            offset = end;
+        }
+        return formatted.toString();
     }
 
     private User findUserByUsername(String username, List<User> users) {
@@ -800,6 +922,98 @@ public class LoginForm extends javax.swing.JFrame {
                 BorderFactory.createLineBorder(BrandTheme.BORDER, 1),
                 BorderFactory.createEmptyBorder(0, 0, 0, 0)
         ));
+    }
+
+    private interface InputConstraint {
+        boolean isValid(String candidateText);
+    }
+
+    private static final class CharacterConstraintFilter extends DocumentFilter {
+
+        private final InputConstraint constraint;
+
+        private CharacterConstraintFilter(InputConstraint constraint) {
+            this.constraint = constraint;
+        }
+
+        @Override
+        public void insertString(FilterBypass fb,
+                                 int offset,
+                                 String string,
+                                 AttributeSet attr) throws BadLocationException {
+            replace(fb, offset, 0, string, attr);
+        }
+
+        @Override
+        public void replace(FilterBypass fb,
+                            int offset,
+                            int length,
+                            String text,
+                            AttributeSet attrs) throws BadLocationException {
+            String replacement = text == null ? "" : text;
+            String currentText = fb.getDocument().getText(0, fb.getDocument().getLength());
+            String candidate = currentText.substring(0, offset)
+                    + replacement
+                    + currentText.substring(offset + length);
+            if (constraint.isValid(candidate)) {
+                super.replace(fb, offset, length, replacement, attrs);
+            }
+        }
+    }
+
+    private final class GroupedDigitsFilter extends DocumentFilter {
+
+        private final int[] groups;
+        private final int maxDigits;
+
+        private GroupedDigitsFilter(int... groups) {
+            this.groups = groups.clone();
+            int total = 0;
+            for (int group : groups) {
+                total += group;
+            }
+            this.maxDigits = total;
+        }
+
+        @Override
+        public void insertString(FilterBypass fb,
+                                 int offset,
+                                 String string,
+                                 AttributeSet attr) throws BadLocationException {
+            replace(fb, offset, 0, string, attr);
+        }
+
+        @Override
+        public void replace(FilterBypass fb,
+                            int offset,
+                            int length,
+                            String text,
+                            AttributeSet attrs) throws BadLocationException {
+            String replacement = text == null ? "" : text;
+            String currentText = fb.getDocument().getText(0, fb.getDocument().getLength());
+            String candidate = currentText.substring(0, offset)
+                    + replacement
+                    + currentText.substring(offset + length);
+
+            for (int index = 0; index < replacement.length(); index++) {
+                char current = replacement.charAt(index);
+                if (!Character.isDigit(current) && current != '-') {
+                    return;
+                }
+            }
+
+            String digits = normalizeDigitsOnly(candidate);
+            if (digits.length() > maxDigits) {
+                return;
+            }
+
+            fb.replace(0, fb.getDocument().getLength(), formatGroupedDigits(digits, groups), attrs);
+        }
+
+        @Override
+        public void remove(FilterBypass fb, int offset, int length) throws BadLocationException {
+            replace(fb, offset, length, "", null);
+        }
     }
 
     private static final class PasswordVisibilityIcon implements Icon {

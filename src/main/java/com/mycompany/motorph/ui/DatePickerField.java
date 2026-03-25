@@ -32,6 +32,7 @@ public class DatePickerField extends JPanel {
 
     private LocalDate selectedDate;
     private LocalDate defaultDate = AppClock.today();
+    private LocalDate minimumDate;
     private YearMonth visibleMonth = YearMonth.from(defaultDate);
     private Runnable onDateChange;
 
@@ -75,7 +76,24 @@ public class DatePickerField extends JPanel {
         }
     }
 
+    public void setMinimumDate(LocalDate minimumDate) {
+        this.minimumDate = minimumDate;
+        if (selectedDate != null && isBeforeMinimum(selectedDate)) {
+            setDate(null);
+            return;
+        }
+
+        LocalDate referenceDate = selectedDate != null ? selectedDate : defaultDate;
+        if (referenceDate != null && isBeforeMinimum(referenceDate) && minimumDate != null) {
+            visibleMonth = YearMonth.from(minimumDate);
+        }
+        refreshCalendar();
+    }
+
     public void setDate(LocalDate date) {
+        if (date != null && isBeforeMinimum(date)) {
+            return;
+        }
         boolean changed = selectedDate == null ? date != null : !selectedDate.equals(date);
         selectedDate = date;
         if (date == null) {
@@ -231,7 +249,13 @@ public class DatePickerField extends JPanel {
         button.setPreferredSize(new Dimension(34, 28));
         button.setBorder(BorderFactory.createLineBorder(BrandTheme.LAVENDER, 1));
 
-        if (date.equals(selectedDate)) {
+        boolean selectable = !isBeforeMinimum(date);
+        button.setEnabled(selectable);
+
+        if (!selectable) {
+            button.setBackground(BrandTheme.PAPER);
+            button.setForeground(BrandTheme.MUTED);
+        } else if (date.equals(selectedDate)) {
             button.setBackground(BrandTheme.ROYAL);
             button.setForeground(BrandTheme.TEXT);
         } else if (date.equals(AppClock.today())) {
@@ -245,5 +269,9 @@ public class DatePickerField extends JPanel {
         if (date.getDayOfWeek() == DayOfWeek.SATURDAY || date.getDayOfWeek() == DayOfWeek.SUNDAY) {
             button.setForeground(date.equals(selectedDate) ? BrandTheme.TEXT : BrandTheme.MUTED);
         }
+    }
+
+    private boolean isBeforeMinimum(LocalDate date) {
+        return minimumDate != null && date.isBefore(minimumDate);
     }
 }

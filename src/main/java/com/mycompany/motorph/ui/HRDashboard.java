@@ -1,10 +1,13 @@
 package com.mycompany.motorph.ui;
 
+import com.mycompany.motorph.model.LeaveRequest;
 import com.mycompany.motorph.model.NotificationEntry;
 import com.mycompany.motorph.model.User;
+import com.mycompany.motorph.service.LeaveService;
 import com.mycompany.motorph.service.NotificationService;
 import java.awt.BorderLayout;
 import java.awt.Color;
+import java.awt.Component;
 import java.awt.Cursor;
 import java.awt.Dimension;
 import java.awt.Font;
@@ -16,6 +19,8 @@ import java.awt.event.WindowEvent;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import javax.swing.BorderFactory;
 import javax.swing.Box;
 import javax.swing.BoxLayout;
@@ -23,6 +28,7 @@ import javax.swing.JButton;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
 import javax.swing.JLayeredPane;
+import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.SwingConstants;
 
@@ -32,9 +38,22 @@ public class HRDashboard extends JFrame {
             "LEAVE_SUBMITTED",
             "LEAVE_REQUEST"
     );
+    private static final Pattern LEAVE_NOTIFICATION_PATTERN = Pattern.compile(
+            "employee\\s+(\\d+)\\s+from\\s+(\\d{4}-\\d{2}-\\d{2})\\s+to\\s+(\\d{4}-\\d{2}-\\d{2})",
+            Pattern.CASE_INSENSITIVE
+    );
+    private static final Pattern LEAVE_DATE_RANGE_PATTERN = Pattern.compile(
+            "from\\s+(\\d{4}-\\d{2}-\\d{2})\\s+to\\s+(\\d{4}-\\d{2}-\\d{2})",
+            Pattern.CASE_INSENSITIVE
+    );
+    private static final Pattern EMPLOYEE_NUMBER_PATTERN = Pattern.compile(
+            "employee\\s+(\\d+)",
+            Pattern.CASE_INSENSITIVE
+    );
 
     private final User user;
     private final NotificationService notificationService = new NotificationService();
+    private final LeaveService leaveService = new LeaveService();
     private final pnlEmployees employeesPanel;
     private final pnlAttendance attendancePanel = new pnlAttendance(true);
     private final pnlLeaveRequest leaveRequestPanel;
@@ -51,7 +70,7 @@ public class HRDashboard extends JFrame {
         BrandTheme.installGlobalTheme();
         this.user = user;
         this.employeesPanel = new pnlEmployees(user, true);
-        this.leaveRequestPanel = new pnlLeaveRequest(user, true);
+        this.leaveRequestPanel = new pnlLeaveRequest(user, true, null, this::refreshNotificationBell);
         initComponents();
     }
 
@@ -261,13 +280,27 @@ public class HRDashboard extends JFrame {
     }
 
     private void openHrNotifications() {
-        List<NotificationEntry> notifications = getHrNotifications();
-        notificationService.markAsRead(notifications);
         NotificationCenterDialog.showDialog(
                 this,
                 "System Notifications",
-                "",
-                this::getNormalizedHrNotifications
+                "Unread leave requests remain highlighted until they are marked as read or processed.",
+                this::getHrNotifications,
+                new NotificationCenterDialog.NotificationActionHandler() {
+                    @Override
+                    public String getLabel() {
+                        return "Respond to Selected";
+                    }
+
+                    @Override
+                    public boolean isSupported(NotificationEntry notification) {
+                        return extractLeaveNotificationTarget(notification) != null;
+                    }
+
+                    @Override
+                    public boolean handle(Component owner, NotificationEntry notification) {
+                        return respondToNotification(owner, notification);
+                    }
+                }
         );
         refreshNotificationBell();
     }
@@ -280,21 +313,6 @@ public class HRDashboard extends JFrame {
             }
         }
         return relevant;
-    }
-
-    private List<NotificationEntry> getNormalizedHrNotifications() {
-        List<NotificationEntry> notifications = new ArrayList<>();
-        for (NotificationEntry notification : getHrNotifications()) {
-            notifications.add(new NotificationEntry(
-                    notification.getTimestamp(),
-                    notification.getActor(),
-                    notification.getRole(),
-                    normalizeHrAction(notification.getAction()),
-                    notification.getDetails(),
-                    notification.isRead()
-            ));
-        }
-        return notifications;
     }
 
     private String getHrWelcomeText() {
@@ -311,19 +329,217 @@ public class HRDashboard extends JFrame {
         return HR_NOTIFICATION_ACTIONS.contains(action);
     }
 
-    private String normalizeHrAction(String action) {
-        String normalized = action == null ? "" : action.trim().toUpperCase();
-        return switch (normalized) {
-            case "LEAVE_SUBMITTED", "LEAVE_REQUEST" -> "LEAVE_REQUEST";
-            default -> normalized;
-        };
+    private boolean respondToNotification(Component owner, NotificationEntry notification) {
+        LeaveNotificationTarget target = extractLeaveNotificationTarget(notification);
+        if (target == null) {
+            JOptionPane.showMessageDialog(
+                    owner,
+                    "This notification does not include enough leave-request details for direct processing. Open Leave Requests to review it.",
+                    "Leave Request",
+                    JOptionPane.INFORMATION_MESSAGE
+            );
+            return false;
+        }
+
+        LeaveRequest request = findPendingLeaveRequest(target.employeeNumber(), target.startDate(), target.endDate());
+        if (request == null) {
+            JOptionPane.showMessageDialog(
+                    owner,
+                    "No pending leave request matched this notification. Refresh the leave queue and try again.",
+                    "Leave Request",
+                    JOptionPane.INFORMATION_MESSAGE
+            );
+            return false;
+        }
+
+        String choice = DialogHelper.showActionChoice(
+                owner,
+                "Leave Response",
+                "Respond to the leave request for " + request.getEmployeeName() + ".",
+                "Approve",
+                "Reject",
+                "Cancel"
+        );
+
+        if ("Approve".equals(choice)) {
+            String statusMessage = promptStatusMessage(
+                    owner,
+                    "Approval Message",
+                    "Enter an approval message:",
+                    request.getStatusMessage().startsWith("Approved") ? request.getStatusMessage() : "Approved by HR.",
+                    false
+            );
+            if (statusMessage == null) {
+                return false;
+            }
+            boolean updated = leaveService.respondToLeave(
+                    request.getEmployeeNumber(),
+                    request.getStartDate(),
+                    request.getEndDate(),
+                    true,
+                    statusMessage
+            );
+            if (!updated) {
+                JOptionPane.showMessageDialog(
+                        owner,
+                        "The selected leave request is no longer pending. Refresh the queue and try again.",
+                        "Leave Request",
+                        JOptionPane.INFORMATION_MESSAGE
+                );
+                return false;
+            }
+            notificationService.record(
+                    user,
+                    "LEAVE_APPROVED",
+                    "Approved leave for employee " + request.getEmployeeNumber()
+                            + " from " + request.getStartDate()
+                            + " to " + request.getEndDate() + "."
+            );
+        } else if ("Reject".equals(choice)) {
+            String statusMessage = promptStatusMessage(
+                    owner,
+                    "Rejection Message",
+                    "Enter the reason for rejection:",
+                    request.getStatusMessage().startsWith("Rejected") ? request.getStatusMessage() : "",
+                    true
+            );
+            if (statusMessage == null) {
+                return false;
+            }
+            boolean updated = leaveService.respondToLeave(
+                    request.getEmployeeNumber(),
+                    request.getStartDate(),
+                    request.getEndDate(),
+                    false,
+                    statusMessage
+            );
+            if (!updated) {
+                JOptionPane.showMessageDialog(
+                        owner,
+                        "The selected leave request is no longer pending. Refresh the queue and try again.",
+                        "Leave Request",
+                        JOptionPane.INFORMATION_MESSAGE
+                );
+                return false;
+            }
+            notificationService.record(
+                    user,
+                    "LEAVE_REJECTED",
+                    "Rejected leave for employee " + request.getEmployeeNumber()
+                            + " from " + request.getStartDate()
+                            + " to " + request.getEndDate() + "."
+            );
+        } else {
+            return false;
+        }
+
+        notificationService.markAsRead(List.of(notification));
+        leaveRequestPanel.reloadRequests();
+        refreshNotificationBell();
+        return true;
+    }
+
+    private String promptStatusMessage(Component owner,
+                                       String title,
+                                       String prompt,
+                                       String initialValue,
+                                       boolean required) {
+        String message = DialogHelper.promptText(owner, title, prompt, initialValue, "Save Message");
+        if (message == null) {
+            return null;
+        }
+
+        String trimmed = message.trim();
+        if (required && trimmed.isEmpty()) {
+            JOptionPane.showMessageDialog(
+                    owner,
+                    "A reason is required when rejecting a leave request.",
+                    title,
+                    JOptionPane.WARNING_MESSAGE
+            );
+            return null;
+        }
+
+        return trimmed.isEmpty() ? initialValue.trim() : trimmed;
+    }
+
+    private LeaveRequest findPendingLeaveRequest(int employeeNumber, String startDate, String endDate) {
+        List<LeaveRequest> requests = leaveService.getRequests();
+        for (int index = requests.size() - 1; index >= 0; index--) {
+            LeaveRequest request = requests.get(index);
+            if (request.getEmployeeNumber() == employeeNumber
+                    && request.getStartDate().equals(startDate)
+                    && request.getEndDate().equals(endDate)
+                    && "PENDING".equalsIgnoreCase(request.getStatus())) {
+                return request;
+            }
+        }
+        return null;
+    }
+
+    private LeaveNotificationTarget extractLeaveNotificationTarget(NotificationEntry notification) {
+        if (notification == null) {
+            return null;
+        }
+
+        String action = notification.getAction() == null ? "" : notification.getAction().trim().toUpperCase();
+        if (!HR_NOTIFICATION_ACTIONS.contains(action)) {
+            return null;
+        }
+
+        String details = notification.getDetails() == null ? "" : notification.getDetails();
+        Matcher matcher = LEAVE_NOTIFICATION_PATTERN.matcher(details);
+        if (matcher.find()) {
+            try {
+                return new LeaveNotificationTarget(
+                        Integer.parseInt(matcher.group(1)),
+                        matcher.group(2),
+                        matcher.group(3)
+                );
+            } catch (Exception e) {
+                return null;
+            }
+        }
+
+        Matcher dateRangeMatcher = LEAVE_DATE_RANGE_PATTERN.matcher(details);
+        if (!dateRangeMatcher.find()) {
+            return null;
+        }
+
+        Integer employeeNumber = extractEmployeeNumber(details, notification.getActor());
+        if (employeeNumber == null) {
+            return null;
+        }
+
+        return new LeaveNotificationTarget(
+                employeeNumber,
+                dateRangeMatcher.group(1),
+                dateRangeMatcher.group(2)
+        );
+    }
+
+    private Integer extractEmployeeNumber(String details, String actor) {
+        Matcher employeeMatcher = EMPLOYEE_NUMBER_PATTERN.matcher(details);
+        if (employeeMatcher.find()) {
+            try {
+                return Integer.parseInt(employeeMatcher.group(1));
+            } catch (Exception e) {
+                return null;
+            }
+        }
+
+        try {
+            return Integer.parseInt(actor == null ? "" : actor.trim());
+        } catch (Exception e) {
+            return null;
+        }
     }
 
     private static class NotificationBadgeLabel extends JLabel {
 
         NotificationBadgeLabel() {
             super("", SwingConstants.CENTER);
-            setForeground(BrandTheme.TEXT);
+            setForeground(BrandTheme.TEXT_INVERSE);
             setFont(BrandTheme.BUTTON_FONT.deriveFont(Font.BOLD, 11f));
         }
 
@@ -331,13 +547,16 @@ public class HRDashboard extends JFrame {
         protected void paintComponent(Graphics graphics) {
             Graphics2D g2 = (Graphics2D) graphics.create();
             g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-            g2.setColor(BrandTheme.GOLD);
+            g2.setColor(BrandTheme.MOTORPH_RED);
             g2.fillOval(0, 0, getWidth() - 1, getHeight() - 1);
-            g2.setColor(BrandTheme.TEXT);
+            g2.setColor(new Color(0xB2, 0x1A, 0x2D));
             g2.drawOval(0, 0, getWidth() - 1, getHeight() - 1);
             g2.dispose();
             super.paintComponent(graphics);
         }
+    }
+
+    private record LeaveNotificationTarget(int employeeNumber, String startDate, String endDate) {
     }
 
     public static void main(String[] args) {

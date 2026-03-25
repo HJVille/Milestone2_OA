@@ -19,6 +19,8 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
+import java.util.LinkedHashSet;
 
 public class EmployeePortalService {
 
@@ -28,13 +30,15 @@ public class EmployeePortalService {
     private final AttendanceDAO attendanceDAO;
     private final String employeeFilePath;
     private final PayrollComputationService payrollComputationService;
+    private final PayrollRecordService payrollRecordService;
 
     public EmployeePortalService() {
         this(
                 new EmployeeDAO(),
                 CsvFilePaths.EMPLOYEES.toString(),
                 new AttendanceDAO(CsvFilePaths.ATTENDANCE),
-                new PayrollComputationService()
+                new PayrollComputationService(),
+                new PayrollRecordService()
         );
     }
 
@@ -46,7 +50,22 @@ public class EmployeePortalService {
                 employeeDAO,
                 employeeFilePath,
                 new AttendanceDAO(attendancePath),
-                payrollComputationService
+                payrollComputationService,
+                new PayrollRecordService()
+        );
+    }
+
+    public EmployeePortalService(EmployeeDAO employeeDAO,
+                                 String employeeFilePath,
+                                 Path attendancePath,
+                                 PayrollComputationService payrollComputationService,
+                                 PayrollRecordService payrollRecordService) {
+        this(
+                employeeDAO,
+                employeeFilePath,
+                new AttendanceDAO(attendancePath),
+                payrollComputationService,
+                payrollRecordService
         );
     }
 
@@ -54,10 +73,25 @@ public class EmployeePortalService {
                                  String employeeFilePath,
                                  AttendanceDAO attendanceDAO,
                                  PayrollComputationService payrollComputationService) {
+        this(
+                employeeDAO,
+                employeeFilePath,
+                attendanceDAO,
+                payrollComputationService,
+                new PayrollRecordService()
+        );
+    }
+
+    public EmployeePortalService(EmployeeDAO employeeDAO,
+                                 String employeeFilePath,
+                                 AttendanceDAO attendanceDAO,
+                                 PayrollComputationService payrollComputationService,
+                                 PayrollRecordService payrollRecordService) {
         this.employeeDAO = Objects.requireNonNull(employeeDAO, "employeeDAO");
         this.attendanceDAO = Objects.requireNonNull(attendanceDAO, "attendanceDAO");
         this.employeeFilePath = Objects.requireNonNull(employeeFilePath, "employeeFilePath");
         this.payrollComputationService = Objects.requireNonNull(payrollComputationService, "payrollComputationService");
+        this.payrollRecordService = Objects.requireNonNull(payrollRecordService, "payrollRecordService");
     }
 
     public Employee getEmployeeByNumber(int employeeNumber) {
@@ -140,6 +174,49 @@ public class EmployeePortalService {
         return history;
     }
 
+    public List<PayrollPeriodOption> getSavedPayrollPeriods(int employeeNumber) {
+        Map<String, PayrollPeriodOption> periods = new LinkedHashMap<>();
+        for (String[] row : payrollRecordService.getPayrollHistory(employeeNumber)) {
+            if (row.length < 4) {
+                continue;
+            }
+            PayrollPeriodOption period = createPeriodFromStoredRow(row[2], row[3]);
+            if (period != null) {
+                periods.put(period.getKey(), period);
+            }
+        }
+
+        List<PayrollPeriodOption> savedPeriods = new ArrayList<>(periods.values());
+        savedPeriods.sort(periodComparator());
+        return savedPeriods;
+    }
+
+    public EmployeePayrollSummary getSavedPayrollSummary(int employeeNumber, String periodKey) {
+        for (EmployeePayrollSummary summary : getSavedPayrollHistory(employeeNumber)) {
+            if (summary.getPeriod().getKey().equals(periodKey)) {
+                return summary;
+            }
+        }
+        return null;
+    }
+
+    public List<EmployeePayrollSummary> getSavedPayrollHistory(int employeeNumber) {
+        Employee employee = getEmployeeByNumber(employeeNumber);
+        if (employee == null) {
+            return List.of();
+        }
+
+        List<EmployeePayrollSummary> history = new ArrayList<>();
+        for (String[] row : payrollRecordService.getPayrollHistory(employeeNumber)) {
+            EmployeePayrollSummary summary = createSummaryFromStoredRow(employee, row);
+            if (summary != null) {
+                history.add(summary);
+            }
+        }
+        history.sort(summaryComparator());
+        return history;
+    }
+
     public List<Employee> getAllEmployees() {
         return loadEmployees();
     }
@@ -152,10 +229,14 @@ public class EmployeePortalService {
 
         List<EmployeePayrollSummary> summaries = new ArrayList<>();
         for (Employee employee : loadEmployees()) {
+            List<Attendance> attendanceRows = filterAttendance(employee.getEmployeeNumber(), selectedPeriod);
+            if (attendanceRows.isEmpty()) {
+                continue;
+            }
             summaries.add(payrollComputationService.computeSummary(
                     employee,
                     selectedPeriod,
-                    filterAttendance(employee.getEmployeeNumber(), selectedPeriod)
+                    attendanceRows
             ));
         }
 
@@ -207,6 +288,56 @@ public class EmployeePortalService {
         return new ArrayList<>(attendanceDAO.loadCompletedAttendanceRecords(employeeNumber));
     }
 
+    private EmployeePayrollSummary createSummaryFromStoredRow(Employee employee, String[] row) {
+        if (employee == null || row == null || row.length < 14) {
+            return null;
+        }
+
+        PayrollPeriodOption period = createPeriodFromStoredRow(row[2], row[3]);
+        if (period == null) {
+            return null;
+        }
+
+        List<Attendance> attendanceRows = filterAttendance(employee.getEmployeeNumber(), period);
+        Set<LocalDate> attendanceDays = new LinkedHashSet<>();
+        double attendanceHours = 0.0;
+        for (Attendance attendance : attendanceRows) {
+            attendanceDays.add(parseAttendanceDate(attendance));
+            attendanceHours += attendance.getHoursWorked();
+        }
+
+        double basicSalary = parseAmount(row[4]);
+        double riceSubsidy = parseAmount(row[5]);
+        double phoneAllowance = parseAmount(row[6]);
+        double clothingAllowance = parseAmount(row[7]);
+        double grossSalary = parseAmount(row[8]);
+        double sss = parseAmount(row[9]);
+        double philhealth = parseAmount(row[10]);
+        double pagibig = parseAmount(row[11]);
+        double withholdingTax = parseAmount(row[12]);
+        double netSalary = parseAmount(row[13]);
+        double totalDeductions = round(sss + philhealth + pagibig + withholdingTax);
+
+        return new EmployeePayrollSummary(
+                employee.getEmployeeNumber(),
+                employee.getEmployeeName(),
+                period,
+                basicSalary,
+                riceSubsidy,
+                phoneAllowance,
+                clothingAllowance,
+                grossSalary,
+                sss,
+                philhealth,
+                pagibig,
+                withholdingTax,
+                totalDeductions,
+                netSalary,
+                attendanceDays.size(),
+                round(attendanceHours)
+        );
+    }
+
     private PayrollPeriodOption findPeriod(String periodKey, List<PayrollPeriodOption> periods) {
         for (PayrollPeriodOption option : periods) {
             if (option.getKey().equals(periodKey)) {
@@ -246,6 +377,22 @@ public class EmployeePortalService {
         return periods;
     }
 
+    private PayrollPeriodOption createPeriodFromStoredRow(String storedStart, String storedEnd) {
+        try {
+            LocalDate start = LocalDate.parse(storedStart.trim());
+            LocalDate end = LocalDate.parse(storedEnd.trim());
+            YearMonth month = YearMonth.from(start);
+
+            if (start.getDayOfMonth() == 1 && end.equals(month.atEndOfMonth())) {
+                return createMonthlyOption(month);
+            }
+
+            return createSemiMonthlyOption(month, start.getDayOfMonth(), end.getDayOfMonth());
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
     private Comparator<PayrollPeriodOption> periodComparator() {
         return Comparator.comparing(PayrollPeriodOption::getEndDate).reversed()
                 .thenComparing(option -> option.getType() == PayrollPeriodOption.Type.MONTHLY ? 1 : 0);
@@ -277,6 +424,18 @@ public class EmployeePortalService {
 
     private LocalDate parseAttendanceDate(Attendance attendance) {
         return LocalDate.parse(attendance.getDate(), ATTENDANCE_DATE_FORMAT);
+    }
+
+    private double parseAmount(String rawValue) {
+        try {
+            return round(Double.parseDouble(rawValue.trim()));
+        } catch (Exception e) {
+            return 0.0;
+        }
+    }
+
+    private double round(double value) {
+        return Math.round(value * 100.0) / 100.0;
     }
 
 }

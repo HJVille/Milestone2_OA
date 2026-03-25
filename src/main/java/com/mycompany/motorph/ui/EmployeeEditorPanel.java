@@ -2,6 +2,7 @@ package com.mycompany.motorph.ui;
 
 import com.mycompany.motorph.model.Employee;
 import com.mycompany.motorph.model.EmployeeFormData;
+import com.mycompany.motorph.service.EmployeeValidationService;
 import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Component;
@@ -30,8 +31,12 @@ import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.time.format.ResolverStyle;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
+import javax.swing.Box;
+import javax.swing.BoxLayout;
 import javax.swing.BorderFactory;
 import javax.swing.JButton;
 import javax.swing.JComboBox;
@@ -43,20 +48,20 @@ import javax.swing.SwingConstants;
 import javax.swing.SwingUtilities;
 import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
+import javax.swing.text.AbstractDocument;
+import javax.swing.text.AttributeSet;
+import javax.swing.text.BadLocationException;
+import javax.swing.text.DocumentFilter;
 
 public class EmployeeEditorPanel extends JPanel {
 
-    private static final double WORK_DAYS_PER_MONTH = 21.0;
-    private static final double HOURS_PER_DAY = 8.0;
     private static final String REQUIRED_MESSAGE = "This field is required.";
     private static final String LETTERS_ONLY_MESSAGE = "Only alphabetic characters are allowed.";
     private static final String NUMBERS_ONLY_MESSAGE = "Please enter numbers only.";
-    private static final String SUMMARY_MESSAGE =
-            "There were problems with your input. Please correct the highlighted fields.";
-    private static final int FIELD_LABEL_WIDTH = 118;
-    private static final int FULL_WIDTH_LABEL_WIDTH = 134;
     private static final int MIN_YEAR = 1900;
     private static final int MAX_YEAR_BUFFER = 10;
+    private static final int SECTION_COLUMN_GAP = 14;
+    private static final int SECTION_ROW_GAP = 12;
     private static final DateTimeFormatter BIRTH_DATE_FORMATTER =
             DateTimeFormatter.ofPattern("MM/dd/uuuu").withResolverStyle(ResolverStyle.STRICT);
     private static final DecimalFormat DISPLAY_AMOUNT_FORMAT;
@@ -91,31 +96,32 @@ public class EmployeeEditorPanel extends JPanel {
     private final HintTextField phoneField =
             new HintTextField(18, "Enter phone number (digits only)");
     private final HintTextField sssField =
-            new HintTextField(18, "Enter SSS number");
+            new HintTextField(18, "00-0000000-0");
     private final HintTextField philhealthField =
-            new HintTextField(18, "Enter PhilHealth number");
+            new HintTextField(18, "00-000000000-0");
     private final HintTextField tinField =
-            new HintTextField(18, "Enter TIN number");
+            new HintTextField(18, "000-000-000-000");
     private final HintTextField pagibigField =
-            new HintTextField(18, "Enter Pag-IBIG number");
+            new HintTextField(18, "0000-0000-0000");
     private final HintTextField basicSalaryField =
-            new HintTextField(18, "Enter monthly salary");
+            new HintTextField(18, "0.00");
     private final HintTextField riceSubsidyField =
-            new HintTextField(18, "Enter subsidy amount");
+            new HintTextField(18, "0.00");
     private final HintTextField phoneAllowanceField =
-            new HintTextField(18, "Enter phone allowance");
+            new HintTextField(18, "0.00");
     private final HintTextField clothingAllowanceField =
-            new HintTextField(18, "Enter clothing allowance");
+            new HintTextField(18, "0.00");
     private final HintTextField grossSemiMonthlyRateField =
-            new HintTextField(18, "Enter computed gross semi-monthly rate");
+            new HintTextField(18, "0.00");
     private final HintTextField hourlyRateField =
-            new HintTextField(18, "Enter hourly rate");
+            new HintTextField(18, "0.00");
 
     private final JButton birthDateButton = new JButton("Pick");
-    private final JLabel validationSummaryLabel = new JLabel(" ");
     private final List<Employee> existingEmployees;
     private final Integer originalEmployeeNumber;
+    private final EmployeeValidationService validationService = new EmployeeValidationService();
     private final List<FieldGroup> editableGroups = new ArrayList<>();
+    private final Map<HintTextField, FieldGroup> fieldGroupByField = new HashMap<>();
     private final CalendarDialog birthDateDialog = new CalendarDialog();
     private FieldGroup birthDateGroup;
     private LocalDate selectedBirthDate;
@@ -132,13 +138,15 @@ public class EmployeeEditorPanel extends JPanel {
         setLayout(new BorderLayout());
         BrandTheme.styleSurface(this);
         setBorder(BorderFactory.createEmptyBorder(4, 4, 4, 4));
-        setPreferredSize(new Dimension(900, 500));
-        setMinimumSize(new Dimension(820, 460));
+        setPreferredSize(new Dimension(980, 960));
+        setMinimumSize(new Dimension(900, 760));
 
         buildForm();
         configureDatePicker();
+        attachInputFilters();
         populate(employee);
         attachComputedFieldUpdates();
+        attachAmountFormatting();
         attachLiveValidation();
         updateDerivedCompensationFields();
         refreshValidationSummary();
@@ -156,9 +164,9 @@ public class EmployeeEditorPanel extends JPanel {
         data.setAddress(addressField.getText().trim());
         data.setPhone(normalizeGroupedDigits(phoneField.getText(), 3, 3, 3));
         data.setSss(normalizeGroupedDigits(sssField.getText(), 2, 7, 1));
-        data.setPhilhealth(normalizeDigitsOnly(philhealthField.getText()));
+        data.setPhilhealth(normalizeGroupedDigits(philhealthField.getText(), 2, 9, 1));
         data.setTin(normalizeGroupedDigits(tinField.getText(), 3, 3, 3, 3));
-        data.setPagibig(normalizeDigitsOnly(pagibigField.getText()));
+        data.setPagibig(normalizeGroupedDigits(pagibigField.getText(), 4, 4, 4));
         data.setBasicSalary(normalizeAmount(basicSalaryField.getText()));
         data.setRiceSubsidy(normalizeAmount(riceSubsidyField.getText()));
         data.setPhoneAllowance(normalizeAmount(phoneAllowanceField.getText()));
@@ -192,124 +200,156 @@ public class EmployeeEditorPanel extends JPanel {
     }
 
     private void buildForm() {
-        JPanel content = new JPanel(new GridBagLayout());
-        content.setOpaque(false);
+        JPanel sheet = new JPanel();
+        sheet.setOpaque(true);
+        sheet.setBackground(BrandTheme.PAPER);
+        sheet.setLayout(new BoxLayout(sheet, BoxLayout.Y_AXIS));
+        sheet.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(BrandTheme.BORDER, 1),
+                BorderFactory.createEmptyBorder(22, 22, 22, 22)
+        ));
 
-        validationSummaryLabel.setFont(BrandTheme.BODY_FONT.deriveFont(Font.BOLD, 11f));
-        validationSummaryLabel.setForeground(BrandTheme.MOTORPH_RED);
-        validationSummaryLabel.setBorder(BorderFactory.createEmptyBorder(0, 2, 4, 0));
-        validationSummaryLabel.setVisible(false);
+        JLabel titleLabel = new JLabel("Employee Record Form");
+        titleLabel.setFont(BrandTheme.TITLE_FONT.deriveFont(Font.BOLD, 20f));
+        titleLabel.setForeground(BrandTheme.TEXT_DARK);
+        titleLabel.setAlignmentX(LEFT_ALIGNMENT);
 
-        GridBagConstraints gbc = new GridBagConstraints();
-        gbc.gridx = 0;
-        gbc.gridy = 0;
-        gbc.gridwidth = 2;
-        gbc.weightx = 1.0;
-        gbc.fill = GridBagConstraints.HORIZONTAL;
-        gbc.anchor = GridBagConstraints.NORTHWEST;
-        gbc.insets = new Insets(0, 0, 8, 0);
-        content.add(validationSummaryLabel, gbc);
+        JLabel subtitleLabel = new JLabel("Complete the required employee details below.");
+        subtitleLabel.setFont(BrandTheme.BODY_FONT.deriveFont(13f));
+        subtitleLabel.setForeground(BrandTheme.MUTED);
+        subtitleLabel.setAlignmentX(LEFT_ALIGNMENT);
 
-        gbc.gridy = 1;
-        gbc.gridwidth = 1;
-        gbc.weightx = 0.5;
-        gbc.insets = new Insets(0, 0, 10, 8);
-        content.add(buildSectionCard("Employee Information", buildSectionGrid(
+        sheet.add(titleLabel);
+        sheet.add(Box.createVerticalStrut(6));
+        sheet.add(subtitleLabel);
+        sheet.add(Box.createVerticalStrut(18));
+        sheet.add(buildSectionCard("Employee Information", buildSectionGrid(
                 createRequiredTextGroup("Employee Number", employeeNumberField, this::validateEmployeeNumber),
                 createRequiredTextGroup("First Name", firstNameField, this::validatePersonName),
                 createRequiredTextGroup("Last Name", lastNameField, this::validatePersonName),
                 createRequiredDateGroup("Birth Date", birthDateField, birthDateButton, this::validateBirthDate)
-        )), gbc);
-
-        gbc.gridx = 1;
-        gbc.insets = new Insets(0, 8, 10, 0);
-        content.add(buildSectionCard("Work Information", buildSectionGrid(
+        )));
+        sheet.add(Box.createVerticalStrut(16));
+        sheet.add(buildSectionCard("Work Information", buildSectionGrid(
                 createRequiredTextGroup("Position", positionField, this::validatePosition),
                 createRequiredTextGroup("Status", statusField, this::validateStatus),
                 createRequiredFullWidthTextGroup("Immediate Supervisor", supervisorField, this::validateSupervisor)
-        )), gbc);
-
-        gbc.gridx = 0;
-        gbc.gridy = 2;
-        gbc.insets = new Insets(0, 0, 10, 8);
-        content.add(buildSectionCard("Contact Information", buildSectionGrid(
-                createRequiredTextGroup("Address", addressField, null),
+        )));
+        sheet.add(Box.createVerticalStrut(16));
+        sheet.add(buildSectionCard("Contact Information", buildSectionGrid(
+                createRequiredFullWidthTextGroup("Address", addressField, null),
                 createRequiredTextGroup("Phone Number", phoneField, value -> validateDigitsOnly(value, 9))
-        )), gbc);
+        )));
+        sheet.add(Box.createVerticalStrut(16));
+        sheet.add(buildSectionCard("Government Information", buildGovernmentInformationBody()));
+        sheet.add(Box.createVerticalStrut(16));
+        sheet.add(buildSectionCard("Compensation Information", buildSectionGrid(
+                createCurrencyTextGroup("Basic Salary", basicSalaryField, this::validateAmount),
+                createReadOnlyCurrencyGroup("Gross Semi-monthly Rate", grossSemiMonthlyRateField),
+                createCurrencyTextGroup("Rice Subsidy", riceSubsidyField, this::validateAmount),
+                createCurrencyTextGroup("Phone Allowance", phoneAllowanceField, this::validateAmount),
+                createCurrencyTextGroup("Clothing Allowance", clothingAllowanceField, this::validateAmount),
+                createReadOnlyCurrencyGroup("Hourly Rate", hourlyRateField)
+        )));
 
-        gbc.gridx = 1;
-        gbc.insets = new Insets(0, 8, 10, 0);
-        content.add(buildSectionCard("Government Information", buildSectionGrid(
-                createRequiredTextGroup("SSS #", sssField, value -> validateDigitsOnly(value, 10)),
-                createRequiredTextGroup("PhilHealth #", philhealthField, value -> validateDigitsOnly(value, 12)),
-                createRequiredTextGroup("TIN #", tinField, value -> validateDigitsOnly(value, 12)),
-                createRequiredTextGroup("Pag-IBIG #", pagibigField, value -> validateDigitsOnly(value, 12))
-        )), gbc);
+        JPanel wrapper = new JPanel(new BorderLayout());
+        wrapper.setOpaque(false);
+        wrapper.add(sheet, BorderLayout.NORTH);
+        add(wrapper, BorderLayout.CENTER);
 
-        gbc.gridx = 0;
-        gbc.gridy = 3;
-        gbc.gridwidth = 2;
-        gbc.weightx = 1.0;
-        gbc.insets = new Insets(0, 0, 8, 0);
-        content.add(buildSectionCard("Compensation Information", buildSectionGrid(
-                createRequiredTextGroup("Basic Salary", basicSalaryField, this::validateAmount),
-                createReadOnlyGroup("Gross Semi-monthly Rate", grossSemiMonthlyRateField),
-                createRequiredTextGroup("Rice Subsidy", riceSubsidyField, this::validateAmount),
-                createRequiredTextGroup("Phone Allowance", phoneAllowanceField, this::validateAmount),
-                createRequiredTextGroup("Clothing Allowance", clothingAllowanceField, this::validateAmount),
-                createReadOnlyGroup("Hourly Rate", hourlyRateField)
-        )), gbc);
+        Dimension contentSize = sheet.getPreferredSize();
+        setPreferredSize(new Dimension(Math.max(980, contentSize.width + 24), Math.max(960, contentSize.height + 24)));
+    }
 
-        JPanel filler = new JPanel();
-        filler.setOpaque(false);
-        gbc.gridy = 4;
-        gbc.weighty = 1.0;
-        gbc.fill = GridBagConstraints.BOTH;
-        gbc.insets = new Insets(0, 0, 0, 0);
-        content.add(filler, gbc);
+    private JPanel buildGovernmentInformationBody() {
+        JPanel container = new JPanel();
+        container.setOpaque(false);
+        container.setLayout(new BoxLayout(container, BoxLayout.Y_AXIS));
 
-        add(content, BorderLayout.CENTER);
+        container.add(buildSectionGrid(
+                createGovernmentTextGroup("SSS #", sssField, this::validateSss),
+                createGovernmentTextGroup("PhilHealth #", philhealthField, this::validatePhilhealth),
+                createGovernmentTextGroup("TIN #", tinField, this::validateTin),
+                createGovernmentTextGroup("Pag-IBIG #", pagibigField, this::validatePagibig)
+        ));
+        return container;
     }
 
     private JPanel buildSectionCard(String titleText, JPanel body) {
-        JPanel card = new JPanel(new BorderLayout(0, 8));
-        card.setOpaque(true);
-        card.setBackground(BrandTheme.PANEL_BG);
-        card.setForeground(BrandTheme.TEXT);
-        card.setBorder(BorderFactory.createCompoundBorder(
-                BorderFactory.createLineBorder(BrandTheme.BORDER, 1),
-                BorderFactory.createEmptyBorder(10, 10, 10, 10)
-        ));
+        JPanel card = new JPanel(new BorderLayout(0, 0));
+        card.setOpaque(false);
+        card.setAlignmentX(LEFT_ALIGNMENT);
+
+        JPanel header = new JPanel(new BorderLayout());
+        header.setBackground(BrandTheme.PRIMARY_BLUE);
+        header.setBorder(BorderFactory.createEmptyBorder(8, 12, 8, 12));
 
         JLabel title = new JLabel(titleText);
-        title.setFont(BrandTheme.BUTTON_FONT.deriveFont(Font.BOLD, 12f));
-        title.setForeground(BrandTheme.PRIMARY_BLUE);
+        title.setFont(BrandTheme.BUTTON_FONT.deriveFont(Font.BOLD, 12.5f));
+        title.setForeground(BrandTheme.TEXT_INVERSE);
+        header.add(title, BorderLayout.WEST);
 
-        card.add(title, BorderLayout.NORTH);
-        card.add(body, BorderLayout.CENTER);
+        JPanel bodyShell = new JPanel(new BorderLayout());
+        bodyShell.setOpaque(true);
+        bodyShell.setBackground(BrandTheme.PAPER);
+        bodyShell.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(BrandTheme.BORDER, 1),
+                BorderFactory.createEmptyBorder(14, 14, 8, 14)
+        ));
+        bodyShell.add(body, BorderLayout.CENTER);
+
+        card.add(header, BorderLayout.NORTH);
+        card.add(bodyShell, BorderLayout.CENTER);
         return card;
     }
 
     private JPanel buildSectionGrid(FieldGroup... groups) {
         JPanel grid = new JPanel(new GridBagLayout());
         grid.setOpaque(false);
-
         GridBagConstraints gbc = new GridBagConstraints();
-        gbc.gridx = 0;
         gbc.gridy = 0;
         gbc.weightx = 1.0;
-        gbc.fill = GridBagConstraints.HORIZONTAL;
         gbc.anchor = GridBagConstraints.NORTHWEST;
+        gbc.fill = GridBagConstraints.HORIZONTAL;
 
-        for (int index = 0; index < groups.length; index++) {
-            FieldGroup group = groups[index];
-            gbc.gridx = group.fullWidth ? 0 : index % 2;
-            gbc.gridwidth = group.fullWidth ? 2 : 1;
-            gbc.insets = new Insets(0, gbc.gridx == 0 ? 0 : 8, 6, gbc.gridx == 0 && gbc.gridwidth == 1 ? 8 : 0);
-            grid.add(group, gbc);
-            if (group.fullWidth || gbc.gridx == 1) {
+        int column = 0;
+        for (FieldGroup group : groups) {
+            if (group.fullWidth) {
+                gbc.gridx = 0;
+                gbc.gridwidth = 2;
+                gbc.insets = new Insets(0, 0, SECTION_ROW_GAP, 0);
+                grid.add(group, gbc);
                 gbc.gridy++;
+                column = 0;
+                continue;
             }
+
+            gbc.gridx = column;
+            gbc.gridwidth = 1;
+            gbc.insets = new Insets(
+                    0,
+                    column == 0 ? 0 : SECTION_COLUMN_GAP / 2,
+                    SECTION_ROW_GAP,
+                    column == 0 ? SECTION_COLUMN_GAP / 2 : 0
+            );
+            grid.add(group, gbc);
+
+            if (column == 1) {
+                gbc.gridy++;
+                column = 0;
+            } else {
+                column = 1;
+            }
+        }
+
+        if (column == 1) {
+            gbc.gridx = 1;
+            gbc.gridwidth = 1;
+            gbc.weightx = 1.0;
+            gbc.insets = new Insets(0, SECTION_COLUMN_GAP / 2, SECTION_ROW_GAP, 0);
+            JPanel filler = new JPanel();
+            filler.setOpaque(false);
+            grid.add(filler, gbc);
         }
 
         return grid;
@@ -319,16 +359,14 @@ public class EmployeeEditorPanel extends JPanel {
                                                HintTextField field,
                                                FieldValidator validator) {
         FieldGroup group = new FieldGroup(labelText, field, true, validator, false, false, null);
-        editableGroups.add(group);
-        return group;
+        return registerEditableGroup(group);
     }
 
     private FieldGroup createRequiredFullWidthTextGroup(String labelText,
                                                         HintTextField field,
                                                         FieldValidator validator) {
         FieldGroup group = new FieldGroup(labelText, field, true, validator, false, true, null);
-        editableGroups.add(group);
-        return group;
+        return registerEditableGroup(group);
     }
 
     private FieldGroup createRequiredDateGroup(String labelText,
@@ -336,12 +374,37 @@ public class EmployeeEditorPanel extends JPanel {
                                                JButton button,
                                                FieldValidator validator) {
         birthDateGroup = new FieldGroup(labelText, field, true, validator, false, false, button);
-        editableGroups.add(birthDateGroup);
-        return birthDateGroup;
+        return registerEditableGroup(birthDateGroup);
     }
 
     private FieldGroup createReadOnlyGroup(String labelText, HintTextField field) {
         return new FieldGroup(labelText, field, false, null, true, false, null);
+    }
+
+    private FieldGroup createCurrencyTextGroup(String labelText,
+                                               HintTextField field,
+                                               FieldValidator validator) {
+        FieldGroup group = new FieldGroup(labelText, field, true, validator, false, false, null);
+        group.setPrefixText("PHP");
+        return registerEditableGroup(group);
+    }
+
+    private FieldGroup createGovernmentTextGroup(String labelText,
+                                                 HintTextField field,
+                                                 FieldValidator validator) {
+        return createRequiredTextGroup(labelText, field, validator);
+    }
+
+    private FieldGroup createReadOnlyCurrencyGroup(String labelText, HintTextField field) {
+        FieldGroup group = new FieldGroup(labelText, field, false, null, true, false, null);
+        group.setPrefixText("PHP");
+        return group;
+    }
+
+    private FieldGroup registerEditableGroup(FieldGroup group) {
+        editableGroups.add(group);
+        fieldGroupByField.put(group.field, group);
+        return group;
     }
 
     private void configureDatePicker() {
@@ -358,6 +421,107 @@ public class EmployeeEditorPanel extends JPanel {
                 showBirthDatePicker();
             }
         });
+    }
+
+    private void attachInputFilters() {
+        applyDocumentFilter(employeeNumberField, new CharacterConstraintFilter(
+                this::isEmployeeNumberInputValid,
+                (candidateText, replacementText) -> showRejectedInput(
+                        employeeNumberField,
+                        resolveDigitsRejectMessage(candidateText, replacementText, 10)
+                )
+        ));
+        applyDocumentFilter(firstNameField, new CharacterConstraintFilter(
+                text -> matchesAllowedTextInput(text, false, false, false, false),
+                (candidateText, replacementText) -> showRejectedInput(firstNameField, LETTERS_ONLY_MESSAGE)
+        ));
+        applyDocumentFilter(lastNameField, new CharacterConstraintFilter(
+                text -> matchesAllowedTextInput(text, false, false, false, false),
+                (candidateText, replacementText) -> showRejectedInput(lastNameField, LETTERS_ONLY_MESSAGE)
+        ));
+        applyDocumentFilter(positionField, new CharacterConstraintFilter(
+                text -> matchesAllowedTextInput(text, false, true, true, false),
+                (candidateText, replacementText) -> showRejectedInput(positionField, LETTERS_ONLY_MESSAGE)
+        ));
+        applyDocumentFilter(statusField, new CharacterConstraintFilter(
+                text -> matchesAllowedTextInput(text, false, false, true, false),
+                (candidateText, replacementText) -> showRejectedInput(statusField, LETTERS_ONLY_MESSAGE)
+        ));
+        applyDocumentFilter(supervisorField, new CharacterConstraintFilter(
+                text -> matchesAllowedTextInput(text, true, false, true, true),
+                (candidateText, replacementText) -> showRejectedInput(supervisorField, LETTERS_ONLY_MESSAGE)
+        ));
+        applyDocumentFilter(phoneField, new CharacterConstraintFilter(
+                text -> isDigitsWithinLimit(text, 9),
+                (candidateText, replacementText) -> showRejectedInput(
+                        phoneField,
+                        resolveDigitsRejectMessage(candidateText, replacementText, 9)
+                )
+        ));
+        applyDocumentFilter(sssField, new GroupedDigitsFilter(
+                (candidateText, replacementText) -> showRejectedInput(
+                        sssField,
+                        resolveGroupedDigitsRejectMessage(candidateText, replacementText, "Use the format ##-#######-#.")
+                ),
+                2, 7, 1
+        ));
+        applyDocumentFilter(philhealthField, new GroupedDigitsFilter(
+                (candidateText, replacementText) -> showRejectedInput(
+                        philhealthField,
+                        resolveGroupedDigitsRejectMessage(candidateText, replacementText, "Use the format ##-#########-#.")
+                ),
+                2, 9, 1
+        ));
+        applyDocumentFilter(tinField, new GroupedDigitsFilter(
+                (candidateText, replacementText) -> showRejectedInput(
+                        tinField,
+                        resolveGroupedDigitsRejectMessage(candidateText, replacementText, "Use the format ###-###-###-###.")
+                ),
+                3, 3, 3, 3
+        ));
+        applyDocumentFilter(pagibigField, new GroupedDigitsFilter(
+                (candidateText, replacementText) -> showRejectedInput(
+                        pagibigField,
+                        resolveGroupedDigitsRejectMessage(candidateText, replacementText, "Use the format ####-####-####.")
+                ),
+                4, 4, 4
+        ));
+        applyDocumentFilter(basicSalaryField, new DecimalConstraintFilter(
+                13,
+                2,
+                (candidateText, replacementText) -> showRejectedInput(
+                        basicSalaryField,
+                        resolveAmountRejectMessage(replacementText)
+                )
+        ));
+        applyDocumentFilter(riceSubsidyField, new DecimalConstraintFilter(
+                13,
+                2,
+                (candidateText, replacementText) -> showRejectedInput(
+                        riceSubsidyField,
+                        resolveAmountRejectMessage(replacementText)
+                )
+        ));
+        applyDocumentFilter(phoneAllowanceField, new DecimalConstraintFilter(
+                13,
+                2,
+                (candidateText, replacementText) -> showRejectedInput(
+                        phoneAllowanceField,
+                        resolveAmountRejectMessage(replacementText)
+                )
+        ));
+        applyDocumentFilter(clothingAllowanceField, new DecimalConstraintFilter(
+                13,
+                2,
+                (candidateText, replacementText) -> showRejectedInput(
+                        clothingAllowanceField,
+                        resolveAmountRejectMessage(replacementText)
+                )
+        ));
+    }
+
+    private void applyDocumentFilter(HintTextField field, DocumentFilter filter) {
+        ((AbstractDocument) field.getDocument()).setDocumentFilter(filter);
     }
 
     private void stylePickerButton(JButton button) {
@@ -392,6 +556,31 @@ public class EmployeeEditorPanel extends JPanel {
             @Override
             public void changedUpdate(DocumentEvent e) {
                 updateDerivedCompensationFields();
+            }
+        });
+    }
+
+    private void attachAmountFormatting() {
+        attachAmountFormatter(basicSalaryField);
+        attachAmountFormatter(riceSubsidyField);
+        attachAmountFormatter(phoneAllowanceField);
+        attachAmountFormatter(clothingAllowanceField);
+    }
+
+    private void attachAmountFormatter(HintTextField field) {
+        field.addFocusListener(new FocusAdapter() {
+            @Override
+            public void focusLost(FocusEvent e) {
+                String value = field.getText() == null ? "" : field.getText().trim();
+                if (value.isEmpty()) {
+                    return;
+                }
+
+                if (validationService.validateAmountInput(value) != null) {
+                    return;
+                }
+
+                field.setText(formatAmount(parseAmountValue(value)));
             }
         });
     }
@@ -434,6 +623,43 @@ public class EmployeeEditorPanel extends JPanel {
         refreshValidationSummary();
     }
 
+    private void showRejectedInput(HintTextField field, String message) {
+        FieldGroup group = fieldGroupByField.get(field);
+        if (group == null) {
+            return;
+        }
+
+        group.markTouched();
+        group.applyError(message);
+        refreshValidationSummary();
+    }
+
+    private String resolveDigitsRejectMessage(String candidateText, String replacementText, int maxDigits) {
+        if (containsNonDigit(replacementText)) {
+            return NUMBERS_ONLY_MESSAGE;
+        }
+        if (candidateText != null && candidateText.length() > maxDigits) {
+            return "Maximum of " + maxDigits + " digits only.";
+        }
+        return NUMBERS_ONLY_MESSAGE;
+    }
+
+    private String resolveGroupedDigitsRejectMessage(String candidateText,
+                                                     String replacementText,
+                                                     String formatMessage) {
+        if (containsCharactersOtherThanDigitsAndDashes(replacementText)) {
+            return NUMBERS_ONLY_MESSAGE;
+        }
+        return formatMessage;
+    }
+
+    private String resolveAmountRejectMessage(String replacementText) {
+        if (containsCharactersOtherThanDigitsAndDecimal(replacementText)) {
+            return NUMBERS_ONLY_MESSAGE;
+        }
+        return "Use numbers with up to 2 decimal places only.";
+    }
+
     private void updateDerivedCompensationFields() {
         String basicSalaryText = basicSalaryField.getText().trim();
         if (basicSalaryText.isEmpty()) {
@@ -441,138 +667,86 @@ public class EmployeeEditorPanel extends JPanel {
             return;
         }
 
-        String validationMessage = validateAmount(basicSalaryText);
+        String validationMessage = validationService.validateAmountInput(basicSalaryText);
         if (validationMessage != null) {
             clearComputedFields();
             return;
         }
 
         double basicSalary = parseAmountValue(basicSalaryText);
-        grossSemiMonthlyRateField.setText(formatAmount(round(basicSalary / 2.0)));
-        hourlyRateField.setText(formatAmount(round(basicSalary / WORK_DAYS_PER_MONTH / HOURS_PER_DAY)));
+        grossSemiMonthlyRateField.setText(formatAmount(validationService.deriveGrossSemiMonthlyRate(basicSalary)));
+        hourlyRateField.setText(formatAmount(validationService.deriveHourlyRate(basicSalary)));
     }
 
     private void refreshValidationSummary() {
-        for (FieldGroup group : editableGroups) {
-            if (group.hasError()) {
-                validationSummaryLabel.setText(SUMMARY_MESSAGE);
-                validationSummaryLabel.setVisible(true);
-                return;
-            }
-        }
-
-        validationSummaryLabel.setText(" ");
-        validationSummaryLabel.setVisible(false);
+        revalidate();
+        repaint();
     }
 
     private String validateEmployeeNumber(String value) {
-        String digitsMessage = validateDigitsOnly(value, -1);
-        if (digitsMessage != null) {
-            return digitsMessage;
-        }
-
-        try {
-            int employeeNumber = Integer.parseInt(value);
-            for (Employee employee : existingEmployees) {
-                if (employee.getEmployeeNumber() != employeeNumber) {
-                    continue;
-                }
-                if (originalEmployeeNumber != null && employeeNumber == originalEmployeeNumber) {
-                    return null;
-                }
-                return "Employee Number already exists.";
-            }
-            return null;
-        } catch (NumberFormatException ex) {
-            return NUMBERS_ONLY_MESSAGE;
-        }
+        return validationService.validateEmployeeNumberInput(value, existingEmployees, originalEmployeeNumber);
     }
 
     private String validatePersonName(String value) {
-        return matchesAllowedText(value, false, false, false)
-                ? null
-                : LETTERS_ONLY_MESSAGE;
+        return validationService.validatePersonNameInput(value);
     }
 
     private String validatePosition(String value) {
-        return matchesAllowedText(value, false, true, false)
-                ? null
-                : LETTERS_ONLY_MESSAGE;
+        return validationService.validatePositionInput(value);
     }
 
     private String validateSupervisor(String value) {
-        if ("N/A".equalsIgnoreCase(value.trim())) {
-            return null;
-        }
-        return matchesAllowedText(value, true, false, false)
-                ? null
-                : LETTERS_ONLY_MESSAGE;
+        return validationService.validateSupervisorInput(value);
     }
 
     private String validateStatus(String value) {
-        return matchesAllowedText(value, false, false, false)
-                ? null
-                : LETTERS_ONLY_MESSAGE;
+        return validationService.validateStatusInput(value);
     }
 
     private String validateBirthDate(String value) {
-        if (value == null || value.isBlank()) {
-            return REQUIRED_MESSAGE;
+        String message = validationService.validateBirthDateInput(value);
+        if (message == null) {
+            try {
+                selectedBirthDate = LocalDate.parse(value.trim(), BIRTH_DATE_FORMATTER);
+            } catch (DateTimeParseException ex) {
+                selectedBirthDate = null;
+            }
         }
-
-        try {
-            LocalDate parsedDate = LocalDate.parse(value.trim(), BIRTH_DATE_FORMATTER);
-            selectedBirthDate = parsedDate;
-            return null;
-        } catch (DateTimeParseException ex) {
-            return "Please select a valid date.";
-        }
+        return message;
     }
 
     private String validateDigitsOnly(String value, int expectedDigits) {
-        if (!isDigitsOnly(value)) {
-            return NUMBERS_ONLY_MESSAGE;
-        }
-        if (expectedDigits > 0 && value.length() != expectedDigits) {
-            return "Please enter " + expectedDigits + " digits.";
-        }
-        return null;
+        return validationService.validateDigitsInput(value, expectedDigits);
+    }
+
+    private String validateSss(String value) {
+        return validationService.validateSssInput(value);
+    }
+
+    private String validatePhilhealth(String value) {
+        return validationService.validatePhilhealthInput(value);
+    }
+
+    private String validateTin(String value) {
+        return validationService.validateTinInput(value);
+    }
+
+    private String validatePagibig(String value) {
+        return validationService.validatePagibigInput(value);
     }
 
     private String validateAmount(String value) {
-        if (value == null || value.isBlank()) {
-            return REQUIRED_MESSAGE;
-        }
-        int decimalPoints = 0;
-        for (int index = 0; index < value.length(); index++) {
-            char current = value.charAt(index);
-            if (Character.isDigit(current)) {
-                continue;
-            }
-            if (current == '.') {
-                decimalPoints++;
-                if (decimalPoints <= 1) {
-                    continue;
-                }
-            }
-            return NUMBERS_ONLY_MESSAGE;
-        }
-
-        try {
-            double amount = Double.parseDouble(value);
-            if (amount < 0) {
-                return NUMBERS_ONLY_MESSAGE;
-            }
-            return null;
-        } catch (NumberFormatException ex) {
-            return NUMBERS_ONLY_MESSAGE;
-        }
+        return validationService.validateAmountInput(value);
     }
 
-    private boolean matchesAllowedText(String value,
-                                       boolean allowComma,
-                                       boolean allowAmpersand,
-                                       boolean allowSlash) {
+    private boolean matchesAllowedTextInput(String value,
+                                            boolean allowComma,
+                                            boolean allowAmpersand,
+                                            boolean allowHyphen,
+                                            boolean allowSlash) {
+        if (value == null || value.isEmpty()) {
+            return true;
+        }
         for (int index = 0; index < value.length(); index++) {
             char current = value.charAt(index);
             if (Character.isLetter(current) || Character.isWhitespace(current)) {
@@ -584,6 +758,9 @@ public class EmployeeEditorPanel extends JPanel {
             if (allowAmpersand && current == '&') {
                 continue;
             }
+            if (allowHyphen && current == '-') {
+                continue;
+            }
             if (allowSlash && current == '/') {
                 continue;
             }
@@ -592,8 +769,11 @@ public class EmployeeEditorPanel extends JPanel {
         return true;
     }
 
-    private boolean isDigitsOnly(String value) {
-        if (value == null || value.isBlank()) {
+    private boolean isDigitsWithinLimit(String value, int maxLength) {
+        if (value == null || value.isEmpty()) {
+            return true;
+        }
+        if (value.length() > maxLength) {
             return false;
         }
         for (int index = 0; index < value.length(); index++) {
@@ -602,6 +782,10 @@ public class EmployeeEditorPanel extends JPanel {
             }
         }
         return true;
+    }
+
+    private boolean isEmployeeNumberInputValid(String value) {
+        return isDigitsWithinLimit(value, 10);
     }
 
     private String normalizeDigitsOnly(String value) {
@@ -616,6 +800,46 @@ public class EmployeeEditorPanel extends JPanel {
             }
         }
         return digits.toString();
+    }
+
+    private boolean containsNonDigit(String value) {
+        if (value == null || value.isEmpty()) {
+            return false;
+        }
+        for (int index = 0; index < value.length(); index++) {
+            if (!Character.isDigit(value.charAt(index))) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private boolean containsCharactersOtherThanDigitsAndDashes(String value) {
+        if (value == null || value.isEmpty()) {
+            return false;
+        }
+        for (int index = 0; index < value.length(); index++) {
+            char current = value.charAt(index);
+            if (Character.isDigit(current) || current == '-') {
+                continue;
+            }
+            return true;
+        }
+        return false;
+    }
+
+    private boolean containsCharactersOtherThanDigitsAndDecimal(String value) {
+        if (value == null || value.isEmpty()) {
+            return false;
+        }
+        for (int index = 0; index < value.length(); index++) {
+            char current = value.charAt(index);
+            if (Character.isDigit(current) || current == '.') {
+                continue;
+            }
+            return true;
+        }
+        return false;
     }
 
     private String normalizeGroupedDigits(String value, int... groups) {
@@ -638,6 +862,27 @@ public class EmployeeEditorPanel extends JPanel {
             int groupSize = groups[index];
             formatted.append(digits, offset, offset + groupSize);
             offset += groupSize;
+        }
+        return formatted.toString();
+    }
+
+    private String formatGroupedDigits(String value, int... groups) {
+        String digits = normalizeDigitsOnly(value);
+        if (digits.isEmpty()) {
+            return "";
+        }
+
+        StringBuilder formatted = new StringBuilder();
+        int offset = 0;
+        for (int index = 0; index < groups.length && offset < digits.length(); index++) {
+            if (formatted.length() > 0) {
+                formatted.append("-");
+            }
+
+            int groupSize = groups[index];
+            int end = Math.min(offset + groupSize, digits.length());
+            formatted.append(digits, offset, end);
+            offset = end;
         }
         return formatted.toString();
     }
@@ -681,10 +926,10 @@ public class EmployeeEditorPanel extends JPanel {
         supervisorField.setText(resolveEditableValue(employee.getSupervisor()));
         addressField.setText(resolveEditableValue(employee.getAddress()));
         phoneField.setText(normalizeDigitsOnly(employee.getPhone()));
-        sssField.setText(normalizeDigitsOnly(employee.getSss()));
-        philhealthField.setText(normalizeDigitsOnly(employee.getPhilhealth()));
-        tinField.setText(normalizeDigitsOnly(employee.getTin()));
-        pagibigField.setText(normalizeDigitsOnly(employee.getPagibig()));
+        sssField.setText(normalizeGroupedDigits(employee.getSss(), 2, 7, 1));
+        philhealthField.setText(normalizeGroupedDigits(employee.getPhilhealth(), 2, 9, 1));
+        tinField.setText(normalizeGroupedDigits(employee.getTin(), 3, 3, 3, 3));
+        pagibigField.setText(normalizeGroupedDigits(employee.getPagibig(), 4, 4, 4));
         basicSalaryField.setText(formatAmount(employee.getBasicSalary()));
         riceSubsidyField.setText(formatAmount(employee.getRiceSubsidy()));
         phoneAllowanceField.setText(formatAmount(employee.getPhoneAllowance()));
@@ -746,6 +991,7 @@ public class EmployeeEditorPanel extends JPanel {
         private final boolean readOnly;
         private final boolean fullWidth;
         private final JButton accessoryButton;
+        private final JLabel prefixLabel = new JLabel();
         private boolean touched;
 
         private FieldGroup(String labelText,
@@ -764,49 +1010,72 @@ public class EmployeeEditorPanel extends JPanel {
             this.accessoryButton = accessoryButton;
 
             setOpaque(false);
-            setLayout(new BorderLayout(0, 2));
+            setLayout(new BoxLayout(this, BoxLayout.Y_AXIS));
+            setAlignmentX(LEFT_ALIGNMENT);
 
             JLabel label = new JLabel(labelText);
-            label.setFont(BrandTheme.SUBTITLE_FONT.deriveFont(Font.BOLD, 10f));
-            label.setForeground(BrandTheme.MUTED);
-            label.setPreferredSize(new Dimension(fullWidth ? FULL_WIDTH_LABEL_WIDTH : FIELD_LABEL_WIDTH, 26));
+            label.setFont(BrandTheme.SUBTITLE_FONT.deriveFont(Font.BOLD, 11.5f));
+            label.setForeground(BrandTheme.TEXT_DARK);
+            label.setAlignmentX(LEFT_ALIGNMENT);
 
             BrandTheme.styleInputField(field);
             field.setFont(BrandTheme.BODY_FONT.deriveFont(13f));
-            field.setPreferredSize(new Dimension(320, 28));
-            field.setMinimumSize(new Dimension(180, 28));
+            field.setPreferredSize(new Dimension(320, 36));
+            field.setMinimumSize(new Dimension(180, 36));
+            field.setMaximumSize(new Dimension(Integer.MAX_VALUE, 36));
 
-            errorLabel.setFont(BrandTheme.SUBTITLE_FONT.deriveFont(Font.PLAIN, 10f));
+            errorLabel.setFont(BrandTheme.SUBTITLE_FONT.deriveFont(Font.PLAIN, 10.5f));
             errorLabel.setForeground(BrandTheme.MOTORPH_RED);
-            errorLabel.setVisible(false);
-            errorLabel.setBorder(BorderFactory.createEmptyBorder(
-                    0,
-                    (fullWidth ? FULL_WIDTH_LABEL_WIDTH : FIELD_LABEL_WIDTH) + 8,
-                    0,
-                    0
-            ));
+            errorLabel.setAlignmentX(LEFT_ALIGNMENT);
+            errorLabel.setBorder(BorderFactory.createEmptyBorder(4, 2, 0, 0));
+            errorLabel.setText(" ");
+            errorLabel.setVisible(true);
+            errorLabel.setPreferredSize(new Dimension(320, 16));
+            errorLabel.setMaximumSize(new Dimension(Integer.MAX_VALUE, 16));
 
-            if (readOnly) {
-                field.setEditable(false);
-                field.setFocusable(false);
-                field.setBackground(BrandTheme.TABLE_ALT);
-                field.setForeground(BrandTheme.MUTED);
-            }
-
-            JPanel rowPanel = new JPanel(new BorderLayout(8, 0));
+            JPanel rowPanel = new JPanel(new BorderLayout(6, 0));
             rowPanel.setOpaque(false);
-            rowPanel.add(label, BorderLayout.WEST);
+            rowPanel.setAlignmentX(LEFT_ALIGNMENT);
+            rowPanel.setMaximumSize(new Dimension(Integer.MAX_VALUE, 36));
 
             JPanel inputPanel = new JPanel(new BorderLayout(6, 0));
             inputPanel.setOpaque(false);
+            inputPanel.setAlignmentX(LEFT_ALIGNMENT);
+            prefixLabel.setVisible(false);
+            prefixLabel.setFont(BrandTheme.SUBTITLE_FONT.deriveFont(Font.BOLD, 11f));
+            prefixLabel.setForeground(BrandTheme.MUTED);
+            prefixLabel.setBorder(BorderFactory.createEmptyBorder(0, 0, 0, 6));
+            inputPanel.add(prefixLabel, BorderLayout.WEST);
             inputPanel.add(field, BorderLayout.CENTER);
             if (accessoryButton != null) {
                 inputPanel.add(accessoryButton, BorderLayout.EAST);
             }
-            rowPanel.add(inputPanel, BorderLayout.CENTER);
 
-            add(rowPanel, BorderLayout.CENTER);
-            add(errorLabel, BorderLayout.SOUTH);
+            add(label);
+            add(Box.createVerticalStrut(4));
+            add(inputPanel);
+            add(errorLabel);
+
+            applyInputState();
+        }
+
+        private void setPrefixText(String text) {
+            prefixLabel.setText(text == null ? "" : text);
+            prefixLabel.setVisible(text != null && !text.isBlank());
+        }
+
+        private void applyInputState() {
+            boolean inputLocked = readOnly;
+            field.setEditable(!inputLocked);
+            field.setFocusable(!inputLocked);
+
+            if (inputLocked) {
+                field.setBackground(BrandTheme.TABLE_ALT);
+                field.setForeground(BrandTheme.MUTED);
+            } else {
+                field.setBackground(BrandTheme.INPUT_BG);
+                field.setForeground(BrandTheme.TEXT);
+            }
         }
 
         private String validateValue(boolean enforceRequired) {
@@ -826,25 +1095,18 @@ public class EmployeeEditorPanel extends JPanel {
         private void applyError(String message) {
             if (message == null) {
                 errorLabel.setText(" ");
-                errorLabel.setVisible(false);
                 field.setBorder(createFieldBorder(BrandTheme.BORDER));
-                if (readOnly) {
-                    field.setBackground(BrandTheme.TABLE_ALT);
-                    field.setForeground(BrandTheme.MUTED);
-                } else {
-                    field.setBackground(BrandTheme.INPUT_BG);
-                    field.setForeground(BrandTheme.TEXT);
-                }
+                applyInputState();
                 return;
             }
 
             errorLabel.setText(message);
-            errorLabel.setVisible(true);
             field.setBorder(createFieldBorder(BrandTheme.MOTORPH_RED));
+            applyInputState();
         }
 
         private boolean hasError() {
-            return errorLabel.isVisible() && errorLabel.getText() != null && !errorLabel.getText().isBlank();
+            return errorLabel.getText() != null && !errorLabel.getText().isBlank();
         }
 
         private void markTouched() {
@@ -1059,6 +1321,193 @@ public class EmployeeEditorPanel extends JPanel {
                     BorderFactory.createEmptyBorder(4, 8, 4, 8)
             ));
         }
+    }
+
+    private interface InputConstraint {
+        boolean isValid(String candidateText);
+    }
+
+    private interface InvalidInputFeedback {
+        void handleRejectedInput(String candidateText, String replacementText);
+    }
+
+    private static final class CharacterConstraintFilter extends DocumentFilter {
+
+        private final InputConstraint constraint;
+        private final InvalidInputFeedback rejectedInputFeedback;
+
+        private CharacterConstraintFilter(InputConstraint constraint,
+                                          InvalidInputFeedback rejectedInputFeedback) {
+            this.constraint = constraint;
+            this.rejectedInputFeedback = rejectedInputFeedback;
+        }
+
+        @Override
+        public void insertString(FilterBypass fb,
+                                 int offset,
+                                 String string,
+                                 AttributeSet attr) throws BadLocationException {
+            replace(fb, offset, 0, string, attr);
+        }
+
+        @Override
+        public void replace(FilterBypass fb,
+                            int offset,
+                            int length,
+                            String text,
+                            AttributeSet attrs) throws BadLocationException {
+            String replacement = text == null ? "" : text;
+            String currentText = fb.getDocument().getText(0, fb.getDocument().getLength());
+            String candidate = currentText.substring(0, offset)
+                    + replacement
+                    + currentText.substring(offset + length);
+            if (constraint.isValid(candidate)) {
+                super.replace(fb, offset, length, replacement, attrs);
+            } else if (rejectedInputFeedback != null && !replacement.isEmpty()) {
+                rejectedInputFeedback.handleRejectedInput(candidate, replacement);
+            }
+        }
+
+        @Override
+        public void remove(FilterBypass fb, int offset, int length) throws BadLocationException {
+            super.remove(fb, offset, length);
+        }
+    }
+
+    private final class GroupedDigitsFilter extends DocumentFilter {
+
+        private final int[] groups;
+        private final int maxDigits;
+        private final InvalidInputFeedback rejectedInputFeedback;
+
+        private GroupedDigitsFilter(InvalidInputFeedback rejectedInputFeedback, int... groups) {
+            this.rejectedInputFeedback = rejectedInputFeedback;
+            this.groups = groups.clone();
+
+            int total = 0;
+            for (int group : groups) {
+                total += group;
+            }
+            this.maxDigits = total;
+        }
+
+        @Override
+        public void insertString(FilterBypass fb,
+                                 int offset,
+                                 String string,
+                                 AttributeSet attr) throws BadLocationException {
+            replace(fb, offset, 0, string, attr);
+        }
+
+        @Override
+        public void replace(FilterBypass fb,
+                            int offset,
+                            int length,
+                            String text,
+                            AttributeSet attrs) throws BadLocationException {
+            String replacement = text == null ? "" : text;
+            String currentText = fb.getDocument().getText(0, fb.getDocument().getLength());
+            String candidate = currentText.substring(0, offset)
+                    + replacement
+                    + currentText.substring(offset + length);
+
+            String digits = normalizeDigitsOnly(candidate);
+            if (digits.length() > maxDigits) {
+                if (rejectedInputFeedback != null && !replacement.isEmpty()) {
+                    rejectedInputFeedback.handleRejectedInput(candidate, replacement);
+                }
+                return;
+            }
+
+            if (!replacement.isEmpty() && containsCharactersOtherThanDigitsAndDashes(replacement)) {
+                if (rejectedInputFeedback != null) {
+                    rejectedInputFeedback.handleRejectedInput(candidate, replacement);
+                }
+                return;
+            }
+
+            String formatted = formatGroupedDigits(digits, groups);
+            fb.replace(0, fb.getDocument().getLength(), formatted, attrs);
+        }
+
+        @Override
+        public void remove(FilterBypass fb, int offset, int length) throws BadLocationException {
+            replace(fb, offset, length, "", null);
+        }
+    }
+
+    private static final class DecimalConstraintFilter extends DocumentFilter {
+
+        private final int maxDigitsBeforeDecimal;
+        private final int maxDigitsAfterDecimal;
+        private final InvalidInputFeedback rejectedInputFeedback;
+
+        private DecimalConstraintFilter(int maxDigitsBeforeDecimal,
+                                        int maxDigitsAfterDecimal,
+                                        InvalidInputFeedback rejectedInputFeedback) {
+            this.maxDigitsBeforeDecimal = maxDigitsBeforeDecimal;
+            this.maxDigitsAfterDecimal = maxDigitsAfterDecimal;
+            this.rejectedInputFeedback = rejectedInputFeedback;
+        }
+
+        @Override
+        public void insertString(FilterBypass fb,
+                                 int offset,
+                                 String string,
+                                 AttributeSet attr) throws BadLocationException {
+            replace(fb, offset, 0, string, attr);
+        }
+
+        @Override
+        public void replace(FilterBypass fb,
+                            int offset,
+                            int length,
+                            String text,
+                            AttributeSet attrs) throws BadLocationException {
+            String replacement = text == null ? "" : text;
+            String currentText = fb.getDocument().getText(0, fb.getDocument().getLength());
+            String candidate = currentText.substring(0, offset)
+                    + replacement
+                    + currentText.substring(offset + length);
+
+            if (isValidDecimal(candidate)) {
+                super.replace(fb, offset, length, replacement, attrs);
+            } else if (rejectedInputFeedback != null && !replacement.isEmpty()) {
+                rejectedInputFeedback.handleRejectedInput(candidate, replacement);
+            }
+        }
+
+        private boolean isValidDecimal(String value) {
+            if (value == null || value.isEmpty()) {
+                return true;
+            }
+
+            int decimalIndex = value.indexOf('.');
+            if (decimalIndex >= 0 && value.indexOf('.', decimalIndex + 1) >= 0) {
+                return false;
+            }
+
+            String wholePart = decimalIndex >= 0 ? value.substring(0, decimalIndex) : value;
+            String decimalPart = decimalIndex >= 0 ? value.substring(decimalIndex + 1) : "";
+
+            if (wholePart.length() > maxDigitsBeforeDecimal || decimalPart.length() > maxDigitsAfterDecimal) {
+                return false;
+            }
+
+            for (int index = 0; index < wholePart.length(); index++) {
+                if (!Character.isDigit(wholePart.charAt(index))) {
+                    return false;
+                }
+            }
+            for (int index = 0; index < decimalPart.length(); index++) {
+                if (!Character.isDigit(decimalPart.charAt(index))) {
+                    return false;
+                }
+            }
+
+            return !(value.equals("."));
+        }
+
     }
 
     private final class HintTextField extends JTextField {

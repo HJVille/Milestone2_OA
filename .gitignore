@@ -1,13 +1,5 @@
 target/
 *.class
-.DS_Store
-.idea/
-*.iml
 notifications.csv
 password_audit.csv
-MotorPH_Payroll_Export.csv
-MotorPH_Payroll_Report.txt
 src/test/
-docs/refactoring-plan.md
-docs/refactoring-sheet.md
-docs/rubric-alignment.md

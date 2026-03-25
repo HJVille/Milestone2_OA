@@ -71,16 +71,26 @@ public class AuthService {
     }
 
     public boolean changePassword(User user, String oldPassword, String newPassword, List<User> users) {
-        if (!matchesSuppliedCurrentPassword(user, oldPassword)) {
+        User storedUser = resolveStoredUser(user, users);
+        User passwordSource = storedUser != null ? storedUser : user;
+
+        if (passwordSource == null || users == null || users.isEmpty()) {
             return false;
         }
-        if (isBlank(newPassword) || matchesStoredPassword(user, newPassword)) {
+        if (!matchesSuppliedCurrentPassword(passwordSource, oldPassword)) {
+            return false;
+        }
+        if (isBlank(newPassword) || matchesStoredPassword(passwordSource, newPassword)) {
             return false;
         }
 
-        user.setPassword(passwordHashService.hash(newPassword));
+        String hashedPassword = passwordHashService.hash(newPassword);
+        passwordSource.setPassword(hashedPassword);
+        if (user != null && user != passwordSource) {
+            user.setPassword(hashedPassword);
+        }
         userRepository.saveUsers(users);
-        recordPasswordChange(user.getUsername(), "CHANGE_PASSWORD");
+        recordPasswordChange(passwordSource.getUsername(), "CHANGE_PASSWORD");
         return true;
     }
 
@@ -190,6 +200,24 @@ public class AuthService {
         return null;
     }
 
+    private User resolveStoredUser(User user, List<User> users) {
+        if (user == null || users == null) {
+            return null;
+        }
+
+        for (User candidate : users) {
+            if (candidate == user) {
+                return candidate;
+            }
+            if (candidate.getEmployeeNumber() == user.getEmployeeNumber()
+                    && candidate.getUsername().equalsIgnoreCase(user.getUsername())
+                    && candidate.getRole().equalsIgnoreCase(user.getRole())) {
+                return candidate;
+            }
+        }
+        return null;
+    }
+
     private EmployeeIdentityRecord findEmployeeIdentity(int employeeNumber) {
         try (BufferedReader reader = Files.newBufferedReader(employeesPath)) {
             reader.readLine();
@@ -287,12 +315,12 @@ public class AuthService {
                                        String philhealth,
                                        String tin,
                                        String pagibig) {
-            this.firstName = normalize(firstName);
-            this.lastName = normalize(lastName);
-            this.sss = normalize(sss);
-            this.philhealth = normalize(philhealth);
-            this.tin = normalize(tin);
-            this.pagibig = normalize(pagibig);
+            this.firstName = normalizeName(firstName);
+            this.lastName = normalizeName(lastName);
+            this.sss = normalizeIdentifier(sss);
+            this.philhealth = normalizeIdentifier(philhealth);
+            this.tin = normalizeIdentifier(tin);
+            this.pagibig = normalizeIdentifier(pagibig);
         }
 
         private boolean matches(String firstName,
@@ -301,16 +329,20 @@ public class AuthService {
                                 String philhealth,
                                 String tin,
                                 String pagibig) {
-            return this.firstName.equals(normalize(firstName))
-                    && this.lastName.equals(normalize(lastName))
-                    && this.sss.equals(normalize(sss))
-                    && this.philhealth.equals(normalize(philhealth))
-                    && this.tin.equals(normalize(tin))
-                    && this.pagibig.equals(normalize(pagibig));
+            return this.firstName.equals(normalizeName(firstName))
+                    && this.lastName.equals(normalizeName(lastName))
+                    && this.sss.equals(normalizeIdentifier(sss))
+                    && this.philhealth.equals(normalizeIdentifier(philhealth))
+                    && this.tin.equals(normalizeIdentifier(tin))
+                    && this.pagibig.equals(normalizeIdentifier(pagibig));
         }
 
-        private static String normalize(String value) {
+        private static String normalizeName(String value) {
             return value == null ? "" : value.trim().toLowerCase().replaceAll("\\s+", "");
+        }
+
+        private static String normalizeIdentifier(String value) {
+            return value == null ? "" : value.replaceAll("[^A-Za-z0-9]", "").toLowerCase();
         }
     }
 }

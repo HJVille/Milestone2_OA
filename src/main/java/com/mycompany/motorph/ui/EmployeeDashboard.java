@@ -47,10 +47,12 @@ import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JPasswordField;
 import javax.swing.JScrollPane;
+import javax.swing.JSplitPane;
 import javax.swing.JTable;
 import javax.swing.JTextField;
 import javax.swing.ListSelectionModel;
 import javax.swing.SwingConstants;
+import javax.swing.table.DefaultTableCellRenderer;
 import javax.swing.table.DefaultTableModel;
 
 public class EmployeeDashboard extends JFrame {
@@ -75,7 +77,6 @@ public class EmployeeDashboard extends JFrame {
     private final LeaveService leaveService = new LeaveService();
     private final NotificationService notificationService = new NotificationService();
     private final Employee employee;
-    private final int displayDataYear;
     private final List<PayrollPeriodOption> payrollPeriods;
     private final List<EmployeePayrollSummary> payrollHistory;
     private final LocalDate calendarReferenceDate;
@@ -98,16 +99,8 @@ public class EmployeeDashboard extends JFrame {
         this.user = user;
         this.users = users;
         this.employee = employeePortalService.getEmployeeByNumber(user.getEmployeeNumber());
-        List<String[]> attendanceHistory = attendanceService.getAttendanceHistory(user.getEmployeeNumber());
-        this.displayDataYear = resolveDisplayDataYear(attendanceHistory);
-        this.payrollPeriods = filterPayrollPeriodsByYear(
-                employeePortalService.getAvailablePayrollPeriods(user.getEmployeeNumber()),
-                displayDataYear
-        );
-        this.payrollHistory = filterPayrollHistoryByYear(
-                employeePortalService.getPayrollHistory(user.getEmployeeNumber()),
-                displayDataYear
-        );
+        this.payrollPeriods = employeePortalService.getSavedPayrollPeriods(user.getEmployeeNumber());
+        this.payrollHistory = employeePortalService.getSavedPayrollHistory(user.getEmployeeNumber());
         this.calendarReferenceDate = resolveCalendarReferenceDate();
         initComponents();
     }
@@ -376,10 +369,10 @@ public class EmployeeDashboard extends JFrame {
         }
 
         return new String[][]{
-            {"SSS", employee.getSss()},
-            {"PhilHealth", employee.getPhilhealth()},
-            {"TIN", employee.getTin()},
-            {"Pag-IBIG", employee.getPagibig()}
+            {"SSS", formatGovernmentId(employee.getSss(), 2, 7, 1)},
+            {"PhilHealth", formatGovernmentId(employee.getPhilhealth(), 2, 9, 1)},
+            {"TIN", formatGovernmentId(employee.getTin(), 3, 3, 3, 3)},
+            {"Pag-IBIG", formatGovernmentId(employee.getPagibig(), 4, 4, 4)}
         };
     }
 
@@ -425,6 +418,33 @@ public class EmployeeDashboard extends JFrame {
         frame.setVisible(true);
     }
 
+    private String formatGovernmentId(String value, int... groups) {
+        if (value == null || value.isBlank()) {
+            return "Not Available";
+        }
+
+        String digits = value.replaceAll("[^0-9]", "");
+        int expectedDigits = 0;
+        for (int group : groups) {
+            expectedDigits += group;
+        }
+        if (digits.length() != expectedDigits) {
+            return value;
+        }
+
+        StringBuilder formatted = new StringBuilder();
+        int offset = 0;
+        for (int index = 0; index < groups.length; index++) {
+            if (index > 0) {
+                formatted.append("-");
+            }
+            int groupSize = groups[index];
+            formatted.append(digits, offset, offset + groupSize);
+            offset += groupSize;
+        }
+        return formatted.toString();
+    }
+
     private String getEmployeeWelcomeText() {
         if (employee == null) {
             return "Welcome, employee " + user.getEmployeeNumber() + " | Employee Workspace";
@@ -438,64 +458,6 @@ public class EmployeeDashboard extends JFrame {
 
     private LocalDate resolveCalendarReferenceDate() {
         return AppClock.today();
-    }
-
-    private int resolveDisplayDataYear(List<String[]> attendanceRows) {
-        Map<Integer, Integer> counts = new HashMap<>();
-        int bestYear = 0;
-        int bestCount = -1;
-
-        for (String[] row : attendanceRows) {
-            if (row.length <= 3) {
-                continue;
-            }
-
-            try {
-                int year = LocalDate.parse(row[3].trim(), CSV_SLASH_DATE).getYear();
-                int count = counts.getOrDefault(year, 0) + 1;
-                counts.put(year, count);
-                if (count > bestCount || (count == bestCount && (bestYear == 0 || year < bestYear))) {
-                    bestYear = year;
-                    bestCount = count;
-                }
-            } catch (Exception ignored) {
-            }
-        }
-
-        if (bestYear != 0) {
-            return bestYear;
-        }
-
-        return AppClock.today().getYear();
-    }
-
-    private List<PayrollPeriodOption> filterPayrollPeriodsByYear(List<PayrollPeriodOption> options, int year) {
-        if (options == null || options.isEmpty() || year <= 0) {
-            return options == null ? List.of() : options;
-        }
-
-        List<PayrollPeriodOption> filtered = new ArrayList<>();
-        for (PayrollPeriodOption option : options) {
-            if (option.getStartDate().getYear() == year || option.getEndDate().getYear() == year) {
-                filtered.add(option);
-            }
-        }
-        return filtered.isEmpty() ? options : filtered;
-    }
-
-    private List<EmployeePayrollSummary> filterPayrollHistoryByYear(List<EmployeePayrollSummary> summaries, int year) {
-        if (summaries == null || summaries.isEmpty() || year <= 0) {
-            return summaries == null ? List.of() : summaries;
-        }
-
-        List<EmployeePayrollSummary> filtered = new ArrayList<>();
-        for (EmployeePayrollSummary summary : summaries) {
-            PayrollPeriodOption period = summary.getPeriod();
-            if (period.getStartDate().getYear() == year || period.getEndDate().getYear() == year) {
-                filtered.add(summary);
-            }
-        }
-        return filtered.isEmpty() ? summaries : filtered;
     }
 
     private String resolveProfilePosition() {
@@ -542,12 +504,10 @@ public class EmployeeDashboard extends JFrame {
     }
 
     private void openEmployeeNotifications() {
-        List<NotificationEntry> notifications = getEmployeeNotifications();
-        notificationService.markAsRead(notifications);
         NotificationCenterDialog.showDialog(
                 this,
                 "System Notifications",
-                "",
+                "Unread items remain highlighted until they are marked as read.",
                 this::getEmployeeNotifications
         );
         refreshNotificationBell();
@@ -796,10 +756,10 @@ public class EmployeeDashboard extends JFrame {
             BrandTheme.styleCardSurface(panel);
             panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
 
-            JLabel title = createSectionTitle("Latest Attendance");
+            JLabel title = createSectionTitle("Latest Payroll");
 
             JLabel body = new JLabel(latest == null
-                    ? "No attendance-backed payroll periods available yet."
+                    ? "No processed payroll records available yet."
                     : "<html>Period: " + formatPeriod(latest.getPeriod())
                     + "<br/>Days Worked: " + latest.getAttendanceDays()
                     + "<br/>Hours Worked: " + String.format("%.2f", latest.getAttendanceHours()) + "</html>");
@@ -842,6 +802,7 @@ public class EmployeeDashboard extends JFrame {
     private class PasswordManagementCard extends JPanel {
 
         private final AuthService authService = new AuthService();
+        private final JPasswordField currentPasswordField = new JPasswordField();
         private final JPasswordField newPasswordField = new JPasswordField();
         private final JPasswordField confirmPasswordField = new JPasswordField();
 
@@ -853,16 +814,15 @@ public class EmployeeDashboard extends JFrame {
             title.setFont(BrandTheme.BUTTON_FONT.deriveFont(Font.BOLD, 16f));
             title.setForeground(BrandTheme.PRIMARY_BLUE);
 
-            JLabel subtitle = new JLabel("<html>Update your current account password without leaving the employee workspace.</html>");
-            subtitle.setFont(BrandTheme.BODY_FONT.deriveFont(13f));
-            subtitle.setForeground(BrandTheme.MUTED);
-
             JPanel form = new JPanel();
             form.setOpaque(false);
             form.setLayout(new BoxLayout(form, BoxLayout.Y_AXIS));
 
+            BrandTheme.styleInputField(currentPasswordField);
             BrandTheme.styleInputField(newPasswordField);
             BrandTheme.styleInputField(confirmPasswordField);
+            currentPasswordField.setMaximumSize(new Dimension(Integer.MAX_VALUE, 38));
+            currentPasswordField.setPreferredSize(new Dimension(320, 38));
             newPasswordField.setMaximumSize(new Dimension(Integer.MAX_VALUE, 38));
             newPasswordField.setPreferredSize(new Dimension(320, 38));
             confirmPasswordField.setMaximumSize(new Dimension(Integer.MAX_VALUE, 38));
@@ -873,8 +833,9 @@ public class EmployeeDashboard extends JFrame {
             updateButton.setAlignmentX(LEFT_ALIGNMENT);
             updateButton.addActionListener(evt -> handlePasswordUpdate());
 
-            form.add(subtitle);
-            form.add(Box.createVerticalStrut(16));
+            form.add(Box.createVerticalStrut(4));
+            form.add(buildPasswordField("Current Password", currentPasswordField));
+            form.add(Box.createVerticalStrut(12));
             form.add(buildPasswordField("New Password", newPasswordField));
             form.add(Box.createVerticalStrut(12));
             form.add(buildPasswordField("Confirm Password", confirmPasswordField));
@@ -911,13 +872,14 @@ public class EmployeeDashboard extends JFrame {
                 return;
             }
 
+            String currentPassword = new String(currentPasswordField.getPassword()).trim();
             String newPassword = new String(newPasswordField.getPassword()).trim();
             String confirmPassword = new String(confirmPasswordField.getPassword()).trim();
 
-            if (newPassword.isEmpty() || confirmPassword.isEmpty()) {
+            if (currentPassword.isEmpty() || newPassword.isEmpty() || confirmPassword.isEmpty()) {
                 JOptionPane.showMessageDialog(
                         this,
-                        "Enter the new password in both fields.",
+                        "Complete all password fields before saving changes.",
                         "Password Update",
                         JOptionPane.WARNING_MESSAGE
                 );
@@ -936,11 +898,11 @@ public class EmployeeDashboard extends JFrame {
                 return;
             }
 
-            boolean updated = authService.changePassword(user, user.getPassword(), newPassword, users);
+            boolean updated = authService.changePassword(user, currentPassword, newPassword, users);
             if (!updated) {
                 JOptionPane.showMessageDialog(
                         this,
-                        "Password update failed. Choose a different password.",
+                        "Password update failed. Check your current password and choose a different new password.",
                         "Password Update",
                         JOptionPane.ERROR_MESSAGE
                 );
@@ -959,6 +921,7 @@ public class EmployeeDashboard extends JFrame {
                     user == null ? "An account password was updated." : user.getUsername() + " updated the account password."
             );
 
+            currentPasswordField.setText("");
             newPasswordField.setText("");
             confirmPasswordField.setText("");
         }
@@ -966,7 +929,6 @@ public class EmployeeDashboard extends JFrame {
 
     private class PayslipsWorkspacePanel extends SurfacePanel {
 
-        private final JComboBox<PayrollPeriodOption> periodSelector = new JComboBox<>();
         private final JTable historyTable = new JTable();
         private final JLabel historyStatusLabel = new JLabel(" ");
 
@@ -995,55 +957,8 @@ public class EmployeeDashboard extends JFrame {
         private List<EmployeePayrollSummary> visibleRows = new ArrayList<>();
 
         PayslipsWorkspacePanel() {
-            JPanel filterPanel = new JPanel();
-            filterPanel.setOpaque(false);
-            filterPanel.setLayout(new BoxLayout(filterPanel, BoxLayout.X_AXIS));
-
-            JLabel filterLabel = createFieldLabel("Pay Period");
-            filterPanel.add(filterLabel);
-            filterPanel.add(Box.createHorizontalStrut(10));
-            BrandTheme.styleComboBox(periodSelector);
-            periodSelector.setFont(BrandTheme.BODY_FONT.deriveFont(14f));
-            periodSelector.setRenderer(new javax.swing.DefaultListCellRenderer() {
-                @Override
-                public java.awt.Component getListCellRendererComponent(javax.swing.JList<?> list,
-                                                                      Object value,
-                                                                      int index,
-                                                                      boolean isSelected,
-                                                                      boolean cellHasFocus) {
-                    super.getListCellRendererComponent(list, value, index, isSelected, cellHasFocus);
-                    if (value instanceof PayrollPeriodOption option) {
-                        String type = option.getType() == PayrollPeriodOption.Type.MONTHLY
-                                ? "Monthly"
-                                : "Semi-Monthly";
-                        setText(formatPeriod(option) + " (" + type + ")");
-                    } else {
-                        setText("Select period");
-                    }
-                    return this;
-                }
-            });
-            setControlWidth(periodSelector, 280);
-            filterPanel.add(periodSelector);
-
-            JPanel content = new JPanel();
-            content.setOpaque(false);
-            content.setLayout(new BoxLayout(content, BoxLayout.Y_AXIS));
-
-            content.add(buildSummaryCard());
-            content.add(Box.createVerticalStrut(16));
-
-            JPanel detailCards = new JPanel(new GridLayout(1, 3, 16, 16));
-            detailCards.setOpaque(false);
-            detailCards.add(buildSalaryComponentsCard());
-            detailCards.add(buildGovernmentDeductionsCard());
-            detailCards.add(buildNetPaySummaryCard());
-            content.add(detailCards);
-            content.add(Box.createVerticalStrut(16));
-            content.add(buildHistoryCard());
-
             historyTable.setModel(new DefaultTableModel(new Object[][]{}, new String[]{
-                "Period", "Type", "Days Worked", "Gross Salary", "Net Pay"
+                "Pay Period", "Type", "Net Pay"
             }) {
                 @Override
                 public boolean isCellEditable(int row, int column) {
@@ -1052,42 +967,113 @@ public class EmployeeDashboard extends JFrame {
             });
             styleDashboardTable(historyTable);
             historyTable.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
-            historyTable.setAutoCreateRowSorter(true);
+            historyTable.setAutoCreateRowSorter(false);
+            historyTable.setRowHeight(24);
+            historyTable.setFont(BrandTheme.BODY_FONT.deriveFont(12f));
+            historyTable.getTableHeader().setFont(BrandTheme.BUTTON_FONT.deriveFont(Font.BOLD, 12f));
+            historyTable.setFillsViewportHeight(true);
+            ((DefaultTableCellRenderer) historyTable.getTableHeader().getDefaultRenderer())
+                    .setHorizontalAlignment(SwingConstants.LEFT);
+            configureArchiveTableColumns();
 
-            historyStatusLabel.setFont(BrandTheme.BODY_FONT.deriveFont(14f));
+            historyStatusLabel.setFont(BrandTheme.BODY_FONT.deriveFont(13f));
             historyStatusLabel.setForeground(BrandTheme.MUTED);
 
-            for (PayrollPeriodOption period : payrollPeriods) {
-                periodSelector.addItem(period);
-            }
-            if (periodSelector.getItemCount() > 0) {
-                periodSelector.setSelectedIndex(0);
-            }
-            periodSelector.setEnabled(periodSelector.getItemCount() > 0);
-            periodSelector.addActionListener(evt -> refreshHistory());
             historyTable.getSelectionModel().addListSelectionListener(evt -> {
                 if (!evt.getValueIsAdjusting()) {
                     updateSelectedSummary();
                 }
             });
 
-            add(buildSectionHeader("Payslips", filterPanel), BorderLayout.NORTH);
-            add(content, BorderLayout.CENTER);
+            add(buildSectionHeader("Payslips", null), BorderLayout.NORTH);
+            add(buildWorkspaceSplitPane(), BorderLayout.CENTER);
 
-            refreshHistory();
+            refreshArchive();
+        }
+
+        private JSplitPane buildWorkspaceSplitPane() {
+            JPanel archivePanel = buildArchivePanel();
+            JScrollPane detailScrollPane = buildPayslipSheetScrollPane();
+            archivePanel.setMinimumSize(new Dimension(320, 0));
+            detailScrollPane.setMinimumSize(new Dimension(560, 0));
+
+            JSplitPane splitPane = new JSplitPane(
+                    JSplitPane.HORIZONTAL_SPLIT,
+                    archivePanel,
+                    detailScrollPane
+            );
+            splitPane.setOpaque(false);
+            splitPane.setBorder(BorderFactory.createEmptyBorder());
+            splitPane.setDividerSize(12);
+            splitPane.setResizeWeight(0.31);
+            splitPane.setContinuousLayout(true);
+            splitPane.setOneTouchExpandable(true);
+            splitPane.setDividerLocation(360);
+            return splitPane;
+        }
+
+        private JPanel buildArchivePanel() {
+            JPanel card = new JPanel(new BorderLayout(0, 14));
+            BrandTheme.styleCardSurface(card);
+
+            JLabel title = new JLabel("Payslip Archive");
+            title.setFont(BrandTheme.BUTTON_FONT.deriveFont(Font.BOLD, 16f));
+            title.setForeground(BrandTheme.PRIMARY_BLUE);
+
+            JLabel subtitle = new JLabel("Recent processed payslips appear first. Select one to view the full breakdown.");
+            subtitle.setFont(BrandTheme.BODY_FONT.deriveFont(12f));
+            subtitle.setForeground(BrandTheme.MUTED);
+
+            JPanel top = new JPanel();
+            top.setOpaque(false);
+            top.setLayout(new BoxLayout(top, BoxLayout.Y_AXIS));
+            top.add(title);
+            top.add(Box.createVerticalStrut(8));
+            top.add(subtitle);
+
+            JScrollPane scrollPane = new JScrollPane(historyTable);
+            BrandTheme.styleScrollPane(scrollPane);
+
+            card.add(top, BorderLayout.NORTH);
+            card.add(scrollPane, BorderLayout.CENTER);
+            card.add(historyStatusLabel, BorderLayout.SOUTH);
+            return card;
+        }
+
+        private JScrollPane buildPayslipSheetScrollPane() {
+            JPanel content = new JPanel();
+            content.setOpaque(false);
+            content.setLayout(new BoxLayout(content, BoxLayout.Y_AXIS));
+            content.add(buildSummaryCard());
+            content.add(Box.createVerticalStrut(16));
+
+            JPanel detailCards = new JPanel(new GridLayout(1, 2, 16, 16));
+            detailCards.setOpaque(false);
+            detailCards.add(buildSalaryComponentsCard());
+            detailCards.add(buildGovernmentDeductionsCard());
+            content.add(detailCards);
+            content.add(Box.createVerticalStrut(16));
+            content.add(buildNetPaySummaryCard());
+
+            JScrollPane scrollPane = new JScrollPane(content);
+            BrandTheme.styleScrollPane(scrollPane);
+            scrollPane.setBorder(BorderFactory.createEmptyBorder());
+            scrollPane.getVerticalScrollBar().setUnitIncrement(16);
+            scrollPane.getHorizontalScrollBar().setUnitIncrement(16);
+            return scrollPane;
         }
 
         private JPanel buildSummaryCard() {
             JPanel card = new JPanel(new BorderLayout(0, 16));
             BrandTheme.styleCardSurface(card);
 
-            JLabel title = new JLabel("Payslip Summary");
+            JLabel title = new JLabel("Selected Payslip");
             title.setFont(BrandTheme.BUTTON_FONT.deriveFont(Font.BOLD, 16f));
             title.setForeground(BrandTheme.PRIMARY_BLUE);
 
             JPanel grid = new JPanel(new GridLayout(2, 3, 16, 14));
             grid.setOpaque(false);
-            grid.add(buildDynamicValueBlock("Period", periodValueLabel));
+            grid.add(buildDynamicValueBlock("Pay Period", periodValueLabel));
             grid.add(buildDynamicValueBlock("Type", typeValueLabel));
             grid.add(buildDynamicValueBlock("Days Worked", daysWorkedValueLabel));
             grid.add(buildDynamicValueBlock("Gross Salary", grossValueLabel));
@@ -1148,7 +1134,7 @@ public class EmployeeDashboard extends JFrame {
             title.setFont(BrandTheme.BUTTON_FONT.deriveFont(Font.BOLD, 16f));
             title.setForeground(BrandTheme.PRIMARY_BLUE);
 
-            JPanel grid = new JPanel(new GridLayout(0, 1, 0, 12));
+            JPanel grid = new JPanel(new GridLayout(1, 3, 16, 12));
             grid.setOpaque(false);
             grid.add(buildDynamicValueBlock("Gross Salary", grossSummaryValueLabel));
             grid.add(buildDynamicValueBlock("Total Deductions", totalDeductionsValueLabel));
@@ -1159,86 +1145,69 @@ public class EmployeeDashboard extends JFrame {
             return card;
         }
 
-        private JPanel buildHistoryCard() {
-            JPanel card = new JPanel(new BorderLayout(0, 14));
-            BrandTheme.styleCardSurface(card);
-
-            JLabel title = new JLabel("Payslip History");
-            title.setFont(BrandTheme.BUTTON_FONT.deriveFont(Font.BOLD, 16f));
-            title.setForeground(BrandTheme.PRIMARY_BLUE);
-
-            JScrollPane scrollPane = new JScrollPane(historyTable);
-            BrandTheme.styleScrollPane(scrollPane);
-
-            card.add(title, BorderLayout.NORTH);
-            card.add(scrollPane, BorderLayout.CENTER);
-            card.add(historyStatusLabel, BorderLayout.SOUTH);
-            return card;
+        private void configureArchiveTableColumns() {
+            historyTable.getColumnModel().getColumn(0).setPreferredWidth(178);
+            historyTable.getColumnModel().getColumn(1).setPreferredWidth(126);
+            historyTable.getColumnModel().getColumn(2).setPreferredWidth(112);
+            historyTable.getColumnModel().getColumn(2).setCellRenderer(new DefaultTableCellRenderer() {
+                @Override
+                public void setValue(Object value) {
+                    setHorizontalAlignment(SwingConstants.RIGHT);
+                    super.setValue(value);
+                }
+            });
         }
 
-        private void refreshHistory() {
-            PayrollPeriodOption selectedPeriod = (PayrollPeriodOption) periodSelector.getSelectedItem();
-            visibleRows = new ArrayList<>();
-
-            if (selectedPeriod != null) {
-                for (EmployeePayrollSummary summary : payrollHistory) {
-                    if (summary.getPeriod().getKey().equals(selectedPeriod.getKey())) {
-                        visibleRows.add(summary);
-                    }
-                }
-                if (visibleRows.isEmpty()) {
-                    EmployeePayrollSummary fallbackSummary = resolveFallbackSummary(selectedPeriod);
-                    if (fallbackSummary != null) {
-                        visibleRows.add(fallbackSummary);
-                    }
-                }
-            } else {
-                visibleRows.addAll(payrollHistory);
-            }
+        private void refreshArchive() {
+            visibleRows = new ArrayList<>(payrollHistory);
 
             DefaultTableModel model = (DefaultTableModel) historyTable.getModel();
             model.setRowCount(0);
             for (EmployeePayrollSummary summary : visibleRows) {
                 model.addRow(new Object[]{
                     formatPeriod(summary.getPeriod()),
-                    summary.getPeriod().getType() == PayrollPeriodOption.Type.MONTHLY ? "Monthly" : "Semi-Monthly",
-                    summary.getAttendanceDays(),
-                    MONEY.format(summary.getGrossSalary()),
+                    formatArchiveType(summary.getPeriod()),
                     MONEY.format(summary.getNetSalary())
                 });
             }
 
-            String periodLabel = selectedPeriod == null ? "all available periods" : formatPeriod(selectedPeriod);
-            historyStatusLabel.setText("Showing " + visibleRows.size() + " payroll records for " + periodLabel + ".");
+            if (payrollHistory.isEmpty()) {
+                historyStatusLabel.setText("Processed payslips will appear here after Finance saves payroll.");
+            } else if (visibleRows.isEmpty()) {
+                historyStatusLabel.setText("No processed payslips match the current filters.");
+            } else {
+                historyStatusLabel.setText("Showing " + visibleRows.size() + " of " + payrollHistory.size() + " processed payslips.");
+            }
 
             if (!visibleRows.isEmpty()) {
                 historyTable.setRowSelectionInterval(0, 0);
                 updateSelectedSummary();
             } else {
                 historyTable.clearSelection();
-                updateSummary(resolveFallbackSummary(selectedPeriod));
+                updateSummary(null);
             }
         }
 
-        private EmployeePayrollSummary resolveFallbackSummary(PayrollPeriodOption selectedPeriod) {
-            if (selectedPeriod == null || user == null) {
-                return null;
+        private String formatArchiveType(PayrollPeriodOption period) {
+            if (period == null) {
+                return "Not Available";
             }
-            return employeePortalService.getPayrollSummary(user.getEmployeeNumber(), selectedPeriod.getKey());
+            if (period.getType() == PayrollPeriodOption.Type.MONTHLY) {
+                return "Monthly Summary";
+            }
+            return period.getStartDate().getDayOfMonth() <= 15 ? "First Pay Period" : "Second Pay Period";
         }
 
         private void updateSelectedSummary() {
             int selectedRow = historyTable.getSelectedRow();
             if (selectedRow < 0) {
-                updateSummary(visibleRows.isEmpty()
-                        ? resolveFallbackSummary((PayrollPeriodOption) periodSelector.getSelectedItem())
-                        : visibleRows.get(0));
+                updateSummary(visibleRows.isEmpty() ? null : visibleRows.get(0));
                 return;
             }
 
             int modelRow = historyTable.convertRowIndexToModel(selectedRow);
             if (modelRow < 0 || modelRow >= visibleRows.size()) {
-                updateSummary(resolveFallbackSummary((PayrollPeriodOption) periodSelector.getSelectedItem()));
+                updateSummary(visibleRows.isEmpty() ? null : visibleRows.get(0));
                 return;
             }
 
@@ -1269,7 +1238,7 @@ public class EmployeeDashboard extends JFrame {
             }
 
             periodValueLabel.setText(formatPeriod(summary.getPeriod()));
-            typeValueLabel.setText(summary.getPeriod().getType() == PayrollPeriodOption.Type.MONTHLY ? "Monthly" : "Semi-Monthly");
+            typeValueLabel.setText(formatArchiveType(summary.getPeriod()));
             daysWorkedValueLabel.setText(String.valueOf(summary.getAttendanceDays()));
             grossValueLabel.setText(MONEY.format(summary.getGrossSalary()));
             netPayValueLabel.setText(MONEY.format(summary.getNetSalary()));
@@ -1426,6 +1395,8 @@ public class EmployeeDashboard extends JFrame {
             setControlWidth(endDateField, 184);
             startDateField.setDefaultDate(calendarReferenceDate);
             endDateField.setDefaultDate(calendarReferenceDate);
+            startDateField.setMinimumDate(calendarReferenceDate);
+            endDateField.setMinimumDate(calendarReferenceDate);
             setButtonSize(btnSubmit, 116);
             setButtonSize(btnRefresh, 96);
             btnSubmit.addActionListener(evt -> submitLeaveRequest());
@@ -1499,6 +1470,11 @@ public class EmployeeDashboard extends JFrame {
                     return;
                 }
 
+                if (startDate.isBefore(AppClock.today()) || endDate.isBefore(AppClock.today())) {
+                    JOptionPane.showMessageDialog(this, "Leave dates cannot be earlier than today.");
+                    return;
+                }
+
                 if (endDate.isBefore(startDate)) {
                     JOptionPane.showMessageDialog(this, "End date cannot be earlier than start date.");
                     return;
@@ -1516,7 +1492,10 @@ public class EmployeeDashboard extends JFrame {
                 notificationService.record(
                         user,
                         "LEAVE_SUBMITTED",
-                        "Submitted " + request.getLeaveType() + " from " + request.getStartDate() + " to " + request.getEndDate() + "."
+                        "Submitted leave request (" + request.getLeaveType() + ") for employee "
+                                + request.getEmployeeNumber()
+                                + " from " + request.getStartDate()
+                                + " to " + request.getEndDate() + "."
                 );
                 refreshNotificationBell();
                 startDateField.setDate(null);
@@ -1524,6 +1503,8 @@ public class EmployeeDashboard extends JFrame {
                 reloadRequests();
                 JOptionPane.showMessageDialog(this, "Leave request submitted.");
 
+            } catch (IllegalArgumentException e) {
+                JOptionPane.showMessageDialog(this, e.getMessage(), "Leave Request", JOptionPane.WARNING_MESSAGE);
             } catch (Exception e) {
                 JOptionPane.showMessageDialog(this, "Select valid leave dates from the calendar picker.", "Leave Request", JOptionPane.WARNING_MESSAGE);
             }
@@ -1546,6 +1527,7 @@ public class EmployeeDashboard extends JFrame {
             }
 
             summaryLabel.setText("Showing " + employeeRequests.size() + " leave requests. Leave requests are approved by HR or Admin.");
+            refreshNotificationBell();
         }
     }
 
@@ -1634,15 +1616,15 @@ public class EmployeeDashboard extends JFrame {
 
             if (selected == null) {
                 model.addRow(new Object[]{"Status", latestOnly
-                        ? "No payroll periods available."
-                        : "No payslip period is available."});
+                        ? "No processed payroll periods available."
+                        : "No processed payslip period is available."});
                 totalPayAmountLabel.setText(MONEY.format(0));
                 return;
             }
 
-            EmployeePayrollSummary summary = employeePortalService.getPayrollSummary(user.getEmployeeNumber(), selected.getKey());
+            EmployeePayrollSummary summary = employeePortalService.getSavedPayrollSummary(user.getEmployeeNumber(), selected.getKey());
             if (summary == null) {
-                model.addRow(new Object[]{"Status", "No payslip data available."});
+                model.addRow(new Object[]{"Status", "No processed payslip data available."});
                 totalPayAmountLabel.setText(MONEY.format(0));
                 return;
             }
@@ -1791,7 +1773,7 @@ public class EmployeeDashboard extends JFrame {
 
         NotificationBadgeLabel() {
             super("", SwingConstants.CENTER);
-            setForeground(BrandTheme.TEXT);
+            setForeground(BrandTheme.TEXT_INVERSE);
             setFont(BrandTheme.BUTTON_FONT.deriveFont(Font.BOLD, 11f));
         }
 
@@ -1799,9 +1781,9 @@ public class EmployeeDashboard extends JFrame {
         protected void paintComponent(Graphics graphics) {
             Graphics2D g2 = (Graphics2D) graphics.create();
             g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-            g2.setColor(BrandTheme.GOLD);
+            g2.setColor(BrandTheme.MOTORPH_RED);
             g2.fillOval(0, 0, getWidth() - 1, getHeight() - 1);
-            g2.setColor(BrandTheme.TEXT);
+            g2.setColor(new Color(0xB2, 0x1A, 0x2D));
             g2.drawOval(0, 0, getWidth() - 1, getHeight() - 1);
             g2.dispose();
             super.paintComponent(graphics);

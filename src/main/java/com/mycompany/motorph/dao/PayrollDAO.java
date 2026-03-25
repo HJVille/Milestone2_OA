@@ -8,9 +8,11 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -41,9 +43,17 @@ public class PayrollDAO implements PayrollInterface {
             return;
         }
 
+        Set<String> replacedPeriods = new LinkedHashSet<>();
+        for (Payslip payslip : payslips) {
+            replacedPeriods.add(buildPeriodKey(payslip.getPeriodStart(), payslip.getPeriodEnd()));
+        }
+
         Map<String, String[]> mergedRows = new LinkedHashMap<>();
         for (String[] row : loadAllRows()) {
             if (row.length >= 14) {
+                if (replacedPeriods.contains(buildPeriodKey(row[2], row[3]))) {
+                    continue;
+                }
                 mergedRows.put(buildKey(row[0], row[2], row[3]), row);
             }
         }
@@ -162,6 +172,10 @@ public class PayrollDAO implements PayrollInterface {
 
     private String buildKey(String employeeNumber, String periodStart, String periodEnd) {
         return employeeNumber + "|" + periodStart + "|" + periodEnd;
+    }
+
+    private String buildPeriodKey(String periodStart, String periodEnd) {
+        return periodStart + "|" + periodEnd;
     }
 
     private String escapeCsv(String value) {

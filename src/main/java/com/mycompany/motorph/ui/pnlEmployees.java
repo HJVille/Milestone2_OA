@@ -14,8 +14,11 @@ import java.awt.Font;
 import java.awt.event.ComponentAdapter;
 import java.awt.event.ComponentEvent;
 import java.awt.Window;
+import java.text.DecimalFormat;
+import java.text.DecimalFormatSymbols;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import javax.swing.JComboBox;
 import javax.swing.JDialog;
 import javax.swing.JLabel;
@@ -31,6 +34,7 @@ public class pnlEmployees extends javax.swing.JPanel {
     private static final String[] DEFAULT_SEARCH_FILTERS = {
             "Employee Name", "Employee Number"
     };
+    private static final DecimalFormat MONEY = new DecimalFormat("PHP #,##0.00", new DecimalFormatSymbols(Locale.US));
 
     private final EmployeeManagementService employeeManagementService = new EmployeeManagementService();
     private final EmployeeValidationService validationService = new EmployeeValidationService();
@@ -363,8 +367,8 @@ public class pnlEmployees extends javax.swing.JPanel {
                 employee.getFirstName(),
                 employee.getPosition(),
                 employee.getStatus(),
-                employee.getBasicSalary(),
-                employee.getHourlyRate(),
+                MONEY.format(employee.getBasicSalary()),
+                MONEY.format(employee.getHourlyRate()),
                 employee.getPhone()
             });
         }
@@ -580,8 +584,8 @@ public class pnlEmployees extends javax.swing.JPanel {
         dialog.setContentPane(shell);
         dialog.getRootPane().setDefaultButton(primaryButton);
         dialog.pack();
-        dialog.setMinimumSize(new Dimension(820, responsiveLayout ? 640 : 620));
-        dialog.setSize(Math.max(dialog.getWidth(), 880), Math.max(dialog.getHeight(), responsiveLayout ? 660 : 640));
+        dialog.setMinimumSize(new Dimension(980, responsiveLayout ? 760 : 720));
+        dialog.setSize(Math.max(dialog.getWidth(), 1040), Math.max(dialog.getHeight(), responsiveLayout ? 780 : 740));
         dialog.setLocationRelativeTo(owner == null ? this : owner);
         dialog.setVisible(true);
         return confirmed[0];

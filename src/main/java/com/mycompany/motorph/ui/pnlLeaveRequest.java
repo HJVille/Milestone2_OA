@@ -59,6 +59,7 @@ public class pnlLeaveRequest extends javax.swing.JPanel {
     private final AccessControlService accessControlService = new AccessControlService();
     private final User actorUser;
     private final boolean responsiveLayout;
+    private final Runnable onRefreshRequested;
     private final String[] searchFilterOptions;
     private final boolean includeAllSearchScope;
 
@@ -93,12 +94,20 @@ public class pnlLeaveRequest extends javax.swing.JPanel {
     }
 
     public pnlLeaveRequest(User actorUser, boolean responsiveLayout) {
-        this(actorUser, responsiveLayout, null);
+        this(actorUser, responsiveLayout, null, null);
     }
 
     public pnlLeaveRequest(User actorUser, boolean responsiveLayout, String[] searchFilterOptions) {
+        this(actorUser, responsiveLayout, searchFilterOptions, null);
+    }
+
+    public pnlLeaveRequest(User actorUser,
+                           boolean responsiveLayout,
+                           String[] searchFilterOptions,
+                           Runnable onRefreshRequested) {
         this.actorUser = actorUser;
         this.responsiveLayout = responsiveLayout;
+        this.onRefreshRequested = onRefreshRequested == null ? () -> { } : onRefreshRequested;
         this.includeAllSearchScope = searchFilterOptions != null && searchFilterOptions.length > 0;
         this.searchFilterOptions = searchFilterOptions == null || searchFilterOptions.length == 0
                 ? DEFAULT_SEARCH_FILTERS.clone()
@@ -226,6 +235,7 @@ public class pnlLeaveRequest extends javax.swing.JPanel {
         requests = new ArrayList<>(leaveService.getRequests());
         populateLeaveTypeFilterOptions();
         applyCurrentFilters();
+        onRefreshRequested.run();
     }
 
     private void rebuildLayout() {
@@ -982,10 +992,14 @@ public class pnlLeaveRequest extends javax.swing.JPanel {
         DefaultTableModel model = (DefaultTableModel) jTable1.getModel();
         int employeeNumber = Integer.parseInt(String.valueOf(model.getValueAt(modelRow, 0)));
         String startDate = String.valueOf(model.getValueAt(modelRow, 3));
+        String endDate = String.valueOf(model.getValueAt(modelRow, 4));
 
-        for (LeaveRequest request : requests) {
+        for (int index = requests.size() - 1; index >= 0; index--) {
+            LeaveRequest request = requests.get(index);
             if (request.getEmployeeNumber() == employeeNumber && request.getStartDate().equals(startDate)) {
-                return request;
+                if (request.getEndDate().equals(endDate)) {
+                    return request;
+                }
             }
         }
         return null;
@@ -995,6 +1009,11 @@ public class pnlLeaveRequest extends javax.swing.JPanel {
         LeaveRequest request = getSelectedRequest();
         if (request == null) {
             JOptionPane.showMessageDialog(this, "Select a leave request first.");
+            return;
+        }
+
+        if (!"PENDING".equalsIgnoreCase(request.getStatus())) {
+            JOptionPane.showMessageDialog(this, "Only pending leave requests can be processed.", "Leave Request", JOptionPane.INFORMATION_MESSAGE);
             return;
         }
 
@@ -1017,7 +1036,7 @@ public class pnlLeaveRequest extends javax.swing.JPanel {
             if (statusMessage == null) {
                 return;
             }
-            leaveService.respondToLeave(request.getEmployeeNumber(), request.getStartDate(), true, statusMessage);
+            leaveService.respondToLeave(request.getEmployeeNumber(), request.getStartDate(), request.getEndDate(), true, statusMessage);
             notificationService.record(
                     actorUser,
                     "LEAVE_APPROVED",
@@ -1033,7 +1052,7 @@ public class pnlLeaveRequest extends javax.swing.JPanel {
             if (statusMessage == null) {
                 return;
             }
-            leaveService.respondToLeave(request.getEmployeeNumber(), request.getStartDate(), false, statusMessage);
+            leaveService.respondToLeave(request.getEmployeeNumber(), request.getStartDate(), request.getEndDate(), false, statusMessage);
             notificationService.record(
                     actorUser,
                     "LEAVE_REJECTED",

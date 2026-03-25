@@ -99,7 +99,7 @@ public class AttendanceDAO implements AttendanceInterface {
                     continue;
                 }
 
-                Attendance attendance = new Attendance(dateStr, logIn, logOut, 1.0);
+                Attendance attendance = new Attendance(dateStr, logIn, logOut);
                 double hoursWorked = Math.min(12, attendance.calculateHoursWorked());
 
                 for (Employee emp : employees) {
@@ -198,7 +198,7 @@ public class AttendanceDAO implements AttendanceInterface {
             try {
                 double logInTime = convertTimeToDouble(login);
                 double logOutTime = convertTimeToDouble(logout);
-                records.add(new Attendance(date, logInTime, logOutTime, 1.0));
+                records.add(new Attendance(date, logInTime, logOutTime));
             } catch (Exception e) {
                 LOGGER.log(Level.FINE, "Skipping invalid attendance row.", e);
             }

@@ -6,3 +6,7 @@ employeeNumber,employeeName,leaveType,startDate,endDate,status,remarks
 10021,Darlene Lazaro,Sick Leave,2026-03-01,2026-03-05,PENDING,Pending review by HR/Admin.
 10001,Manuel III Garcia,Vacation Leave,2026-03-01,2026-03-31,PENDING,Pending review by HR/Admin.
 10001,Manuel III Garcia,Sick Leave,2026-03-02,2026-03-06,APPROVED,Approved by HR/Admin.
+10001,Manuel III Garcia,Sick Leave,2026-04-01,2026-04-05,APPROVED,Get well soon.
+10001,Manuel III Garcia,Emergency Leave,2026-03-11,2026-03-13,PENDING,Pending review by HR/Admin.
+10001,Manuel III Garcia,Vacation Leave,2026-03-02,2026-03-03,PENDING,Pending review by HR/Admin.
+10001,Manuel III Garcia,Sick Leave,2026-05-01,2026-05-06,APPROVED,Approved by HR.

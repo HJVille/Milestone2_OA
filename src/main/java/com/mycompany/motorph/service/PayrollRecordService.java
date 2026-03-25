@@ -29,4 +29,16 @@ public class PayrollRecordService {
     public List<String[]> getPayrollHistory(int employeeNumber) {
         return new ArrayList<>(payrollDAO.getPayrollHistory(employeeNumber));
     }
+
+    public boolean hasPayrollForPeriod(String periodStart, String periodEnd) {
+        for (String[] row : payrollDAO.getPayrollHistory(0)) {
+            if (row.length < 4) {
+                continue;
+            }
+            if (row[2].trim().equals(periodStart) && row[3].trim().equals(periodEnd)) {
+                return true;
+            }
+        }
+        return false;
+    }
 }

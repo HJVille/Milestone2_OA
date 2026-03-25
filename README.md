@@ -122,12 +122,12 @@ Important:
 
 Use these exact credentials for role checking:
 
-| Username | Password | Role | Notes |
-|---|---|---|---|
-| `hr1` | `hr1123` | `HR` | Opens the HR dashboard |
+| Username | Password      | Role | Notes |
+|---|---------------|---|---|
+| `hr1` | `hr1123`      | `HR` | Opens the HR dashboard |
 | `payroll1` | `payroll1123` | `FINANCE` | Opens the Finance dashboard |
-| `it1` | `it1123` | `IT` | Opens the IT System Tools dashboard |
-| `admin` | `admin123` | `ADMIN` | Opens the Admin dashboard |
+| `it1` | `it1123`      | `IT` | Opens the IT System Tools dashboard |
+| `admin` | `admin123`    | `ADMIN` | Opens the Admin dashboard |
 
 These passwords were normalized for project checking and can still be changed later through the IT account-management panel.
 

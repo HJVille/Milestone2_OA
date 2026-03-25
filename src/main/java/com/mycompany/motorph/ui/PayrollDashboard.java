@@ -19,6 +19,7 @@ import java.awt.GridLayout;
 import java.awt.RenderingHints;
 import java.text.DecimalFormat;
 import java.time.LocalDate;
+import java.time.Month;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -37,20 +38,21 @@ import javax.swing.JScrollPane;
 import javax.swing.JTable;
 import javax.swing.JTextField;
 import javax.swing.ListSelectionModel;
-import javax.swing.SwingConstants;
 import javax.swing.table.DefaultTableModel;
 
 public class PayrollDashboard extends JPanel {
 
+    private static final int COMPANY_START_YEAR = 2020;
+    private static final int FUTURE_YEAR_SPAN = 10;
     private static final DecimalFormat MONEY = new DecimalFormat("PHP #,##0.00");
     private static final DateTimeFormatter PERIOD_DATE = DateTimeFormatter.ofPattern("MMM dd, yyyy");
+    private static final DateTimeFormatter MONTH_NAME = DateTimeFormatter.ofPattern("MMMM");
     private static final DateTimeFormatter MONTH_YEAR = DateTimeFormatter.ofPattern("MMM yyyy");
 
     private final User user;
     private final EmployeePortalService employeePortalService = new EmployeePortalService();
     private final PayrollRecordService payrollRecordService = new PayrollRecordService();
     private final NotificationService notificationService = new NotificationService();
-    private final int displayDataYear;
     private final List<PayrollPeriodOption> availablePeriods;
 
     private final CardLayout contentCards = new CardLayout();
@@ -68,9 +70,7 @@ public class PayrollDashboard extends JPanel {
     public PayrollDashboard(User user) {
         BrandTheme.installGlobalTheme();
         this.user = user;
-        List<PayrollPeriodOption> sourcedPeriods = employeePortalService.getAvailablePayrollPeriods();
-        this.displayDataYear = resolveDisplayDataYear(sourcedPeriods);
-        this.availablePeriods = filterPayrollPeriodsByYear(sourcedPeriods, displayDataYear);
+        this.availablePeriods = employeePortalService.getAvailablePayrollPeriods();
         this.processPayrollPanel = new ProcessPayrollPanel();
         this.payrollRecordsPanel = new PayrollRecordsPanel();
         setLayout(new BorderLayout(0, 16));
@@ -172,41 +172,6 @@ public class PayrollDashboard extends JPanel {
         refreshAll();
     }
 
-    private int resolveDisplayDataYear(List<PayrollPeriodOption> periods) {
-        if (periods == null || periods.isEmpty()) {
-            return AppClock.today().getYear();
-        }
-
-        java.util.Map<Integer, Integer> counts = new java.util.LinkedHashMap<>();
-        for (PayrollPeriodOption period : periods) {
-            counts.merge(period.getEndDate().getYear(), 1, Integer::sum);
-        }
-
-        int selectedYear = periods.get(0).getEndDate().getYear();
-        int highestCount = -1;
-        for (java.util.Map.Entry<Integer, Integer> entry : counts.entrySet()) {
-            int year = entry.getKey();
-            int count = entry.getValue();
-            if (count > highestCount || (count == highestCount && year > selectedYear)) {
-                highestCount = count;
-                selectedYear = year;
-            }
-        }
-        return selectedYear;
-    }
-
-    private List<PayrollPeriodOption> filterPayrollPeriodsByYear(List<PayrollPeriodOption> periods, int year) {
-        List<PayrollPeriodOption> filtered = new ArrayList<>();
-        for (PayrollPeriodOption period : periods) {
-            if (period.getEndDate().getYear() == year) {
-                filtered.add(period);
-            }
-        }
-        filtered.sort(Comparator.comparing(PayrollPeriodOption::getEndDate).reversed()
-                .thenComparing(option -> option.getType() == PayrollPeriodOption.Type.MONTHLY ? 1 : 0));
-        return filtered;
-    }
-
     private Set<String> buildAllowedPeriodKeys() {
         Set<String> allowedKeys = new LinkedHashSet<>();
         for (PayrollPeriodOption period : availablePeriods) {
@@ -223,48 +188,78 @@ public class PayrollDashboard extends JPanel {
         }
     }
 
+    private String formatRunTypeLabel(PayrollPeriodOption option) {
+        if (option == null) {
+            return "Not available";
+        }
+        if (option.getType() == PayrollPeriodOption.Type.MONTHLY) {
+            return "Monthly Summary";
+        }
+        return option.getStartDate().getDayOfMonth() <= 15 ? "First Pay Period" : "Second Pay Period";
+    }
+
     private String formatPeriodFilterLabel(PayrollPeriodOption option) {
         if (option == null) {
             return "";
         }
-        String monthLabel = MONTH_YEAR.format(option.getEndDate());
-        if (option.getType() == PayrollPeriodOption.Type.MONTHLY) {
-            return monthLabel + " | Monthly";
-        }
-        return monthLabel + " | " + option.getStartDate().getDayOfMonth() + "-" + option.getEndDate().getDayOfMonth();
+        return MONTH_YEAR.format(option.getEndDate()) + " | " + formatRunTypeLabel(option);
     }
 
-    private static String formatPeriod(PayrollPeriodOption option) {
-        return option.getLabel() + " | " + PERIOD_DATE.format(option.getStartDate()) + " - " + PERIOD_DATE.format(option.getEndDate());
+    private String formatPeriod(PayrollPeriodOption option) {
+        return formatPeriodFilterLabel(option) + " | "
+                + PERIOD_DATE.format(option.getStartDate()) + " - " + PERIOD_DATE.format(option.getEndDate());
     }
 
-    private PayrollPeriodOption findPeriodForDate(LocalDate selectedDate) {
-        if (availablePeriods.isEmpty()) {
-            return null;
-        }
+    private boolean hasSavedPayrollForPeriod(PayrollPeriodOption option) {
+        return option != null && payrollRecordService.hasPayrollForPeriod(
+                option.getStartDate().toString(),
+                option.getEndDate().toString()
+        );
+    }
 
-        if (selectedDate == null) {
-            return availablePeriods.get(0);
-        }
-
-        PayrollPeriodOption monthlyFallback = null;
+    private PayrollPeriodOption getLatestAvailableSemiMonthlyPeriod() {
         for (PayrollPeriodOption option : availablePeriods) {
-            if (selectedDate.isBefore(option.getStartDate()) || selectedDate.isAfter(option.getEndDate())) {
-                continue;
-            }
             if (option.getType() == PayrollPeriodOption.Type.SEMI_MONTHLY) {
                 return option;
             }
-            monthlyFallback = option;
         }
-        return monthlyFallback;
+        return null;
     }
 
-    private LocalDate resolveLatestAvailablePeriodDate() {
-        if (availablePeriods.isEmpty()) {
-            return AppClock.today();
+    private List<Integer> getYearOptions() {
+        List<Integer> years = new ArrayList<>();
+        int endYear = resolveYearRangeEnd();
+        for (int year = COMPANY_START_YEAR; year <= endYear; year++) {
+            years.add(year);
         }
-        return availablePeriods.get(0).getEndDate();
+        return years;
+    }
+
+    private int resolveYearRangeEnd() {
+        int latestYear = AppClock.today().getYear();
+        for (PayrollPeriodOption option : availablePeriods) {
+            if (option.getType() == PayrollPeriodOption.Type.SEMI_MONTHLY) {
+                latestYear = Math.max(latestYear, option.getStartDate().getYear());
+            }
+        }
+        return latestYear + FUTURE_YEAR_SPAN;
+    }
+
+    private PayrollPeriodOption findSemiMonthlyPeriod(int year, Month month, CutoffOption cutoff) {
+        if (month == null || cutoff == null) {
+            return null;
+        }
+        for (PayrollPeriodOption option : availablePeriods) {
+            if (option.getType() != PayrollPeriodOption.Type.SEMI_MONTHLY) {
+                continue;
+            }
+            if (option.getStartDate().getYear() == year
+                    && option.getStartDate().getMonth() == month
+                    && cutoff.matches(option)) {
+                return option;
+            }
+        }
+        return null;
     }
 
     private static String formatCompactAmount(double amount) {
@@ -278,16 +273,177 @@ public class PayrollDashboard extends JPanel {
         return MONEY.format(amount);
     }
 
-    private void setControlWidth(DatePickerField datePickerField, int width) {
+    private void setControlWidth(JComboBox<?> comboBox, int width) {
         Dimension size = new Dimension(width, 34);
-        datePickerField.setPreferredSize(size);
-        datePickerField.setMinimumSize(size);
-        datePickerField.setMaximumSize(size);
+        comboBox.setPreferredSize(size);
+        comboBox.setMinimumSize(size);
+        comboBox.setMaximumSize(size);
+    }
+
+    private static final class MonthOption {
+
+        private final Month month;
+        private final String label;
+
+        MonthOption(Month month) {
+            this.month = month;
+            this.label = MONTH_NAME.format(LocalDate.of(2000, month, 1));
+        }
+
+        Month getMonth() {
+            return month;
+        }
+
+        boolean matches(Month otherMonth) {
+            return month == otherMonth;
+        }
+
+        @Override
+        public String toString() {
+            return label;
+        }
+    }
+
+    private enum CutoffOption {
+        FIRST("First Pay Period"),
+        SECOND("Second Pay Period");
+
+        private final String label;
+
+        CutoffOption(String label) {
+            this.label = label;
+        }
+
+        boolean matches(PayrollPeriodOption option) {
+            int startDay = option.getStartDate().getDayOfMonth();
+            return (this == FIRST && startDay <= 15) || (this == SECOND && startDay > 15);
+        }
+
+        static CutoffOption from(PayrollPeriodOption option) {
+            return option != null && option.getStartDate().getDayOfMonth() > 15 ? SECOND : FIRST;
+        }
+
+        @Override
+        public String toString() {
+            return label;
+        }
+    }
+
+    private final class PeriodSelectionControls {
+
+        private final JComboBox<CutoffOption> cutoffSelector = new JComboBox<>();
+        private final JComboBox<MonthOption> monthSelector = new JComboBox<>();
+        private final JComboBox<Integer> yearSelector = new JComboBox<>();
+        private Runnable selectionListener = () -> { };
+        private boolean adjusting;
+
+        PeriodSelectionControls() {
+            BrandTheme.styleComboBox(cutoffSelector);
+            BrandTheme.styleComboBox(monthSelector);
+            BrandTheme.styleComboBox(yearSelector);
+            setControlWidth(cutoffSelector, 150);
+            setControlWidth(monthSelector, 150);
+            setControlWidth(yearSelector, 100);
+
+            populateCutoffs();
+            populateMonths();
+            populateYears();
+            setSelectedPeriod(getLatestAvailableSemiMonthlyPeriod());
+
+            yearSelector.addActionListener(evt -> notifySelectionChanged());
+            monthSelector.addActionListener(evt -> notifySelectionChanged());
+            cutoffSelector.addActionListener(evt -> notifySelectionChanged());
+        }
+
+        void setOnSelectionChange(Runnable selectionListener) {
+            this.selectionListener = selectionListener == null ? () -> { } : selectionListener;
+        }
+
+        JComboBox<CutoffOption> getCutoffSelector() {
+            return cutoffSelector;
+        }
+
+        JComboBox<MonthOption> getMonthSelector() {
+            return monthSelector;
+        }
+
+        JComboBox<Integer> getYearSelector() {
+            return yearSelector;
+        }
+
+        PayrollPeriodOption getSelectedPeriod() {
+            Integer year = (Integer) yearSelector.getSelectedItem();
+            Month month = getSelectedMonth();
+            CutoffOption cutoff = (CutoffOption) cutoffSelector.getSelectedItem();
+            if (year == null || month == null || cutoff == null) {
+                return null;
+            }
+            return findSemiMonthlyPeriod(year, month, cutoff);
+        }
+
+        void setSelectedPeriod(PayrollPeriodOption targetPeriod) {
+            adjusting = true;
+            if (targetPeriod != null) {
+                yearSelector.setSelectedItem(targetPeriod.getStartDate().getYear());
+                selectMonth(targetPeriod.getStartDate().getMonth());
+                cutoffSelector.setSelectedItem(CutoffOption.from(targetPeriod));
+            } else {
+                LocalDate today = AppClock.today();
+                yearSelector.setSelectedItem(today.getYear());
+                selectMonth(today.getMonth());
+                cutoffSelector.setSelectedItem(today.getDayOfMonth() <= 15 ? CutoffOption.FIRST : CutoffOption.SECOND);
+            }
+            adjusting = false;
+        }
+
+        private void notifySelectionChanged() {
+            if (adjusting) {
+                return;
+            }
+            selectionListener.run();
+        }
+
+        private Month getSelectedMonth() {
+            MonthOption option = (MonthOption) monthSelector.getSelectedItem();
+            return option == null ? null : option.getMonth();
+        }
+
+        private void populateYears() {
+            yearSelector.removeAllItems();
+            List<Integer> years = getYearOptions();
+            for (Integer year : years) {
+                yearSelector.addItem(year);
+            }
+        }
+
+        private void populateMonths() {
+            monthSelector.removeAllItems();
+            for (Month month : Month.values()) {
+                monthSelector.addItem(new MonthOption(month));
+            }
+        }
+
+        private void populateCutoffs() {
+            cutoffSelector.removeAllItems();
+            for (CutoffOption option : CutoffOption.values()) {
+                cutoffSelector.addItem(option);
+            }
+        }
+
+        private void selectMonth(Month month) {
+            for (int index = 0; index < monthSelector.getItemCount(); index++) {
+                MonthOption option = monthSelector.getItemAt(index);
+                if (option != null && option.matches(month)) {
+                    monthSelector.setSelectedIndex(index);
+                    return;
+                }
+            }
+        }
     }
 
     private class ProcessPayrollPanel extends JPanel {
 
-        private final DatePickerField periodSelector = new DatePickerField();
+        private final PeriodSelectionControls periodSelectors = new PeriodSelectionControls();
         private final JTable previewTable = new JTable();
         private final JLabel summaryLabel = new JLabel(" ");
         private final MetricCard employeesCard = new MetricCard(
@@ -297,9 +453,9 @@ public class PayrollDashboard extends JPanel {
                 BrandTheme.PRIMARY_BLUE
         );
         private final MetricCard grossPayrollCard = new MetricCard(
-                "Gross Payroll",
+                "Gross Salary",
                 MONEY.format(0),
-                "Total compensation before deductions.",
+                "Attendance-based salary before allowances.",
                 BrandTheme.GOLD
         );
         private final MetricCard deductionsCard = new MetricCard(
@@ -316,23 +472,21 @@ public class PayrollDashboard extends JPanel {
         );
         private final AnalyticsChartCard compositionChart = new AnalyticsChartCard(
                 "Payroll Composition",
-                "Distribution of payroll totals for the selected processing run."
+                "Gross salary plus allowances less deductions for the selected pay period."
         );
-        private final JLabel selectedPeriodValue = createInsightValueLabel();
-        private final JLabel coverageWindowValue = createInsightValueLabel();
-        private final JLabel runTypeValue = createInsightValueLabel();
-        private final JLabel statusValue = createInsightValueLabel();
-        private final JPanel snapshotCard = buildSnapshotCard();
+        private final JLabel selectedPeriodValue = createContextValueLabel();
+        private final JLabel coverageWindowValue = createContextValueLabel();
+        private final JLabel statusValue = createContextValueLabel();
 
         ProcessPayrollPanel() {
-            setLayout(new BorderLayout(0, 12));
+            setLayout(new BorderLayout(0, 10));
             BrandTheme.styleSurface(this);
 
             JPanel top = new JPanel(new BorderLayout(12, 12));
             top.setOpaque(false);
 
             JLabel title = new JLabel("Process Payroll");
-            title.setFont(BrandTheme.TITLE_FONT.deriveFont(Font.BOLD, 18f));
+            title.setFont(BrandTheme.BODY_FONT.deriveFont(Font.BOLD, 16f));
             title.setForeground(BrandTheme.TEXT_DARK);
             top.add(title, BorderLayout.WEST);
 
@@ -340,26 +494,33 @@ public class PayrollDashboard extends JPanel {
             controls.setOpaque(false);
             controls.setLayout(new BoxLayout(controls, BoxLayout.X_AXIS));
 
-            JLabel selectorLabel = new JLabel("Payroll Period");
-            selectorLabel.setFont(BrandTheme.BUTTON_FONT.deriveFont(Font.BOLD, 12f));
-            selectorLabel.setForeground(BrandTheme.TEXT_DARK);
+            JLabel cutoffLabel = new JLabel("Pay Period");
+            JLabel monthLabel = new JLabel("Month");
+            JLabel yearLabel = new JLabel("Year");
+            for (JLabel label : new JLabel[]{cutoffLabel, monthLabel, yearLabel}) {
+                label.setFont(BrandTheme.BODY_FONT.deriveFont(11f));
+                label.setForeground(BrandTheme.TEXT_DARK);
+            }
 
             JButton btnPreview = new JButton("Preview");
             JButton btnProcess = new JButton("Process & Save");
             BrandTheme.styleSecondaryButton(btnPreview);
             BrandTheme.stylePrimaryButton(btnProcess);
-            periodSelector.setDefaultDate(resolveLatestAvailablePeriodDate());
-            setControlWidth(periodSelector, 220);
-            if (!availablePeriods.isEmpty()) {
-                periodSelector.setDate(resolveLatestAvailablePeriodDate());
-            }
-
+            periodSelectors.setOnSelectionChange(this::markPreviewStale);
             btnPreview.addActionListener(evt -> refreshPreview());
             btnProcess.addActionListener(evt -> processSelectedPeriod());
 
-            controls.add(selectorLabel);
+            controls.add(cutoffLabel);
             controls.add(Box.createHorizontalStrut(10));
-            controls.add(periodSelector);
+            controls.add(periodSelectors.getCutoffSelector());
+            controls.add(Box.createHorizontalStrut(10));
+            controls.add(monthLabel);
+            controls.add(Box.createHorizontalStrut(10));
+            controls.add(periodSelectors.getMonthSelector());
+            controls.add(Box.createHorizontalStrut(10));
+            controls.add(yearLabel);
+            controls.add(Box.createHorizontalStrut(10));
+            controls.add(periodSelectors.getYearSelector());
             controls.add(Box.createHorizontalStrut(10));
             controls.add(btnPreview);
             controls.add(Box.createHorizontalStrut(10));
@@ -367,7 +528,7 @@ public class PayrollDashboard extends JPanel {
             top.add(controls, BorderLayout.EAST);
 
             previewTable.setModel(new DefaultTableModel(new Object[][]{}, new String[]{
-                "Employee #", "Employee Name", "Basic", "Allowances", "Gross", "Deductions", "Net", "Days"
+                "Employee #", "Employee Name", "Gross Salary", "Allowances", "Total Gross", "Deductions", "Net Salary", "Days"
             }) {
                 @Override
                 public boolean isCellEditable(int row, int column) {
@@ -376,10 +537,10 @@ public class PayrollDashboard extends JPanel {
             });
             BrandTheme.styleTable(previewTable);
 
-            summaryLabel.setFont(BrandTheme.BODY_FONT.deriveFont(15f));
+            summaryLabel.setFont(BrandTheme.BODY_FONT.deriveFont(13f));
             summaryLabel.setForeground(BrandTheme.MUTED);
 
-            JPanel north = new JPanel(new BorderLayout(0, 16));
+            JPanel north = new JPanel(new BorderLayout(0, 12));
             north.setOpaque(false);
             north.add(top, BorderLayout.NORTH);
             north.add(buildAnalyticsDeck(), BorderLayout.CENTER);
@@ -393,67 +554,55 @@ public class PayrollDashboard extends JPanel {
             resetPreviewInsights("Awaiting payroll preview.");
         }
 
+        private void markPreviewStale() {
+            DefaultTableModel model = (DefaultTableModel) previewTable.getModel();
+            model.setRowCount(0);
+            resetPreviewInsights("Selection changed. Click Preview to load the selected pay period.");
+            summaryLabel.setText("Selection updated. Click Preview to load payroll data.");
+        }
+
         private JPanel buildAnalyticsDeck() {
             JPanel deck = new JPanel();
             deck.setOpaque(false);
             deck.setLayout(new BoxLayout(deck, BoxLayout.Y_AXIS));
 
-            JPanel metricGrid = new JPanel(new GridLayout(1, 4, 10, 10));
+            JPanel contextStrip = new JPanel(new GridLayout(1, 3, 8, 8));
+            contextStrip.setOpaque(false);
+            contextStrip.add(buildContextTile("Selected Period", selectedPeriodValue));
+            contextStrip.add(buildContextTile("Coverage Window", coverageWindowValue));
+            contextStrip.add(buildContextTile("Status", statusValue));
+
+            JPanel metricGrid = new JPanel(new GridLayout(1, 4, 8, 8));
             metricGrid.setOpaque(false);
             metricGrid.add(employeesCard);
             metricGrid.add(grossPayrollCard);
             metricGrid.add(deductionsCard);
             metricGrid.add(netPayrollCard);
 
-            JPanel insightGrid = new JPanel(new GridLayout(1, 2, 10, 10));
-            insightGrid.setOpaque(false);
-            insightGrid.add(compositionChart);
-            insightGrid.add(snapshotCard);
-
+            deck.add(contextStrip);
+            deck.add(Box.createVerticalStrut(8));
             deck.add(metricGrid);
-            deck.add(Box.createVerticalStrut(12));
-            deck.add(insightGrid);
+            deck.add(Box.createVerticalStrut(8));
+            deck.add(compositionChart);
             return deck;
         }
 
-        private JPanel buildSnapshotCard() {
-            JPanel card = new JPanel(new BorderLayout(0, 16));
+        private JPanel buildContextTile(String labelText, JLabel valueLabel) {
+            JPanel card = new JPanel(new BorderLayout(0, 6));
             BrandTheme.styleCardSurface(card);
 
-            JLabel title = new JLabel("Processing Snapshot");
-            title.setFont(BrandTheme.BUTTON_FONT.deriveFont(Font.BOLD, 16f));
-            title.setForeground(BrandTheme.TEXT);
+            JLabel label = new JLabel(labelText);
+            label.setFont(BrandTheme.BODY_FONT.deriveFont(11f));
+            label.setForeground(BrandTheme.MUTED);
 
-            JPanel grid = new JPanel(new GridLayout(2, 2, 14, 14));
-            grid.setOpaque(false);
-            grid.add(buildInsightBlock("Selected Period", selectedPeriodValue));
-            grid.add(buildInsightBlock("Coverage Window", coverageWindowValue));
-            grid.add(buildInsightBlock("Run Type", runTypeValue));
-            grid.add(buildInsightBlock("Status", statusValue));
-
-            card.add(title, BorderLayout.NORTH);
-            card.add(grid, BorderLayout.CENTER);
+            card.add(label, BorderLayout.NORTH);
+            card.add(valueLabel, BorderLayout.CENTER);
             return card;
         }
 
-        private JPanel buildInsightBlock(String labelText, JLabel valueLabel) {
-            JPanel block = new JPanel();
-            block.setOpaque(false);
-            block.setLayout(new BoxLayout(block, BoxLayout.Y_AXIS));
-
-            JLabel label = new JLabel(labelText);
-            label.setFont(BrandTheme.SUBTITLE_FONT.deriveFont(Font.BOLD, 12f));
-            label.setForeground(BrandTheme.MUTED);
-
-            block.add(label);
-            block.add(Box.createVerticalStrut(6));
-            block.add(valueLabel);
-            return block;
-        }
-
-        private JLabel createInsightValueLabel() {
+        private JLabel createContextValueLabel() {
             JLabel label = new JLabel("Not available");
-            label.setFont(BrandTheme.BUTTON_FONT.deriveFont(Font.BOLD, 15f));
+            label.setFont(BrandTheme.BODY_FONT.deriveFont(12f));
             label.setForeground(BrandTheme.TEXT);
             return label;
         }
@@ -462,60 +611,68 @@ public class PayrollDashboard extends JPanel {
             employeesCard.setValue("0");
             employeesCard.setDetail("Run a preview to populate this KPI.");
             grossPayrollCard.setValue(MONEY.format(0));
-            grossPayrollCard.setDetail("Total compensation before deductions.");
+            grossPayrollCard.setDetail("Attendance-based salary before allowances.");
             deductionsCard.setValue(MONEY.format(0));
             deductionsCard.setDetail("Taxes and government contributions.");
             netPayrollCard.setValue(MONEY.format(0));
             netPayrollCard.setDetail("Projected amount for release.");
             selectedPeriodValue.setText("No period selected");
-            coverageWindowValue.setText("Select a payroll period");
-            runTypeValue.setText(displayDataYear + " payroll cycle");
+            coverageWindowValue.setText("Select pay period, month, and year");
             statusValue.setText(statusText);
             compositionChart.clear("Preview payroll to render the chart.");
         }
 
         private void updatePreviewInsights(PayrollPeriodOption selectedPeriod,
                                            int employeeCount,
-                                           double totalGross,
+                                           double totalBasic,
+                                           double totalAllowances,
                                            double totalDeductions,
-                                           double totalNet) {
+                                           double totalNet,
+                                           boolean alreadyProcessed) {
             employeesCard.setValue(String.valueOf(employeeCount));
             employeesCard.setDetail(employeeCount == 0
                     ? "No employee records are ready for processing."
-                    : employeeCount + (employeeCount == 1 ? " employee in the selected run." : " employees in the selected run."));
-            grossPayrollCard.setValue(MONEY.format(totalGross));
+                    : employeeCount + (employeeCount == 1
+                    ? " employee in the selected pay period."
+                    : " employees in the selected pay period."));
+            grossPayrollCard.setValue(MONEY.format(totalBasic));
             deductionsCard.setValue(MONEY.format(totalDeductions));
             netPayrollCard.setValue(MONEY.format(totalNet));
-            selectedPeriodValue.setText(selectedPeriod.getLabel());
+            selectedPeriodValue.setText(formatPeriodFilterLabel(selectedPeriod));
             coverageWindowValue.setText(PERIOD_DATE.format(selectedPeriod.getStartDate())
                     + " - " + PERIOD_DATE.format(selectedPeriod.getEndDate()));
-            runTypeValue.setText(selectedPeriod.getType() == PayrollPeriodOption.Type.MONTHLY
-                    ? "Monthly payroll"
-                    : "Semi-monthly payroll");
-            statusValue.setText(employeeCount == 0 ? "No preview rows found" : "Ready to process");
+            if (employeeCount == 0) {
+                statusValue.setText("No preview rows found");
+            } else if (alreadyProcessed) {
+                statusValue.setText("Previously processed");
+            } else {
+                statusValue.setText("Ready to process");
+            }
             compositionChart.setSeries(
-                    new String[]{"Gross Payroll", "Deductions", "Net Payroll"},
-                    new double[]{totalGross, totalDeductions, totalNet},
-                    new Color[]{BrandTheme.PRIMARY_BLUE, BrandTheme.MOTORPH_RED, BrandTheme.TEAL}
+                    new String[]{"Gross Salary", "Allowances", "Deductions", "Net Salary"},
+                    new double[]{totalBasic, totalAllowances, totalDeductions, totalNet},
+                    new Color[]{BrandTheme.GOLD, BrandTheme.PRIMARY_BLUE, BrandTheme.MOTORPH_RED, BrandTheme.TEAL}
             );
         }
 
         void refreshPreview() {
 
-            PayrollPeriodOption selectedPeriod = findPeriodForDate(periodSelector.getDate());
+            PayrollPeriodOption selectedPeriod = periodSelectors.getSelectedPeriod();
             DefaultTableModel model = (DefaultTableModel) previewTable.getModel();
             model.setRowCount(0);
 
             if (selectedPeriod == null) {
-                summaryLabel.setText("No attendance-backed payroll periods available.");
-                resetPreviewInsights("No payroll periods are available.");
+                summaryLabel.setText("No attendance-backed payroll data found for the selected pay period.");
+                resetPreviewInsights("No payroll data is available for the selected pay period.");
                 return;
             }
 
             List<EmployeePayrollSummary> summaries = employeePortalService.getPayrollSummariesForPeriod(selectedPeriod.getKey());
-            double totalGross = 0;
+            double totalBasic = 0;
+            double totalAllowances = 0;
             double totalNet = 0;
             double totalDeductions = 0;
+            boolean alreadyProcessed = hasSavedPayrollForPeriod(selectedPeriod);
 
             for (EmployeePayrollSummary summary : summaries) {
                 double allowances = summary.getRiceSubsidy()
@@ -533,34 +690,51 @@ public class PayrollDashboard extends JPanel {
                     summary.getAttendanceDays()
                 });
 
-                totalGross += summary.getGrossSalary();
+                totalBasic += summary.getBasicSalary();
+                totalAllowances += allowances;
                 totalNet += summary.getNetSalary();
                 totalDeductions += summary.getTotalDeductions();
             }
 
-            updatePreviewInsights(selectedPeriod, summaries.size(), totalGross, totalDeductions, totalNet);
+            updatePreviewInsights(selectedPeriod, summaries.size(), totalBasic, totalAllowances, totalDeductions, totalNet, alreadyProcessed);
 
             summaryLabel.setText(
                     "Previewing " + summaries.size()
                     + " employees for " + formatPeriod(selectedPeriod)
-                    + " | Gross " + MONEY.format(totalGross)
-                    + " | Deductions " + MONEY.format(totalDeductions)
-                    + " | Net " + MONEY.format(totalNet)
+                    + " | Gross Salary " + MONEY.format(totalBasic)
+                    + " + Allowances " + MONEY.format(totalAllowances)
+                    + " - Deductions " + MONEY.format(totalDeductions)
+                    + " = Net Salary " + MONEY.format(totalNet)
             );
         }
 
         private void processSelectedPeriod() {
 
-            PayrollPeriodOption selectedPeriod = findPeriodForDate(periodSelector.getDate());
+            PayrollPeriodOption selectedPeriod = periodSelectors.getSelectedPeriod();
             if (selectedPeriod == null) {
-                JOptionPane.showMessageDialog(this, "Select a payroll period first.");
+                JOptionPane.showMessageDialog(this, "Select a pay period, month, and year before processing payroll.");
                 return;
             }
 
             List<Payslip> payslips = employeePortalService.buildPayslipsForPeriod(selectedPeriod.getKey());
             if (payslips.isEmpty()) {
-                JOptionPane.showMessageDialog(this, "No payroll data available for the selected period.");
+                JOptionPane.showMessageDialog(this, "No payroll data is available for the selected pay period.");
                 return;
+            }
+
+            boolean alreadyProcessed = hasSavedPayrollForPeriod(selectedPeriod);
+            if (alreadyProcessed) {
+                int decision = JOptionPane.showConfirmDialog(
+                        this,
+                        "Payroll for this pay period has already been processed. Processing it again will replace the existing saved records. Do you want to continue?",
+                        "Payroll Previously Processed",
+                        JOptionPane.YES_NO_OPTION,
+                        JOptionPane.WARNING_MESSAGE
+                );
+                if (decision != JOptionPane.YES_OPTION) {
+                    statusValue.setText("Reprocessing cancelled");
+                    return;
+                }
             }
 
             payrollRecordService.savePayrolls(payslips);
@@ -569,10 +743,14 @@ public class PayrollDashboard extends JPanel {
                     "PAYROLL_PROCESSED",
                     "Processed " + payslips.size() + " payroll records for " + formatPeriod(selectedPeriod) + "."
             );
-            refreshAll();
+            payrollRecordsPanel.reloadRows();
+            refreshPreview();
+            statusValue.setText(alreadyProcessed ? "Reprocessed and saved" : "Processed and saved");
+            summaryLabel.setText(summaryLabel.getText() + " | Saved " + payslips.size() + (payslips.size() == 1 ? " record." : " records."));
             JOptionPane.showMessageDialog(
                     this,
-                    "Processed " + payslips.size() + " payroll records for " + formatPeriod(selectedPeriod) + ".",
+                    (alreadyProcessed ? "Reprocessed " : "Processed ") + payslips.size()
+                            + " payroll records for " + formatPeriod(selectedPeriod) + ".",
                     "Payroll Saved",
                     JOptionPane.INFORMATION_MESSAGE
             );
@@ -597,15 +775,15 @@ public class PayrollDashboard extends JPanel {
             ));
 
             JLabel titleLabel = new JLabel(titleText);
-            titleLabel.setFont(BrandTheme.SUBTITLE_FONT.deriveFont(Font.BOLD, 12f));
+            titleLabel.setFont(BrandTheme.BODY_FONT.deriveFont(12f));
             titleLabel.setForeground(BrandTheme.MUTED);
             titleLabel.setAlignmentX(LEFT_ALIGNMENT);
 
-            valueLabel.setFont(BrandTheme.TITLE_FONT.deriveFont(Font.BOLD, 20f));
+            valueLabel.setFont(BrandTheme.BODY_FONT.deriveFont(Font.BOLD, 16f));
             valueLabel.setForeground(accent);
             valueLabel.setAlignmentX(LEFT_ALIGNMENT);
 
-            detailLabel.setFont(BrandTheme.BODY_FONT.deriveFont(12f));
+            detailLabel.setFont(BrandTheme.BODY_FONT.deriveFont(11f));
             detailLabel.setForeground(BrandTheme.MUTED);
             detailLabel.setAlignmentX(LEFT_ALIGNMENT);
 
@@ -641,11 +819,11 @@ public class PayrollDashboard extends JPanel {
             header.setLayout(new BoxLayout(header, BoxLayout.Y_AXIS));
 
             JLabel titleLabel = new JLabel(titleText);
-            titleLabel.setFont(BrandTheme.BUTTON_FONT.deriveFont(Font.BOLD, 14f));
+            titleLabel.setFont(BrandTheme.BODY_FONT.deriveFont(Font.BOLD, 13f));
             titleLabel.setForeground(BrandTheme.TEXT);
 
             JLabel subtitleLabel = new JLabel("<html>" + subtitleText + "</html>");
-            subtitleLabel.setFont(BrandTheme.BODY_FONT.deriveFont(12f));
+            subtitleLabel.setFont(BrandTheme.BODY_FONT.deriveFont(11f));
             subtitleLabel.setForeground(BrandTheme.MUTED);
 
             header.add(titleLabel);
@@ -674,8 +852,8 @@ public class PayrollDashboard extends JPanel {
 
         HorizontalBarChartPanel() {
             setOpaque(false);
-            setPreferredSize(new Dimension(0, 182));
-            setMinimumSize(new Dimension(0, 182));
+            setPreferredSize(new Dimension(0, 140));
+            setMinimumSize(new Dimension(0, 140));
         }
 
         void setSeries(String[] labels, double[] values, Color[] colors) {
@@ -700,7 +878,7 @@ public class PayrollDashboard extends JPanel {
 
             Graphics2D g2 = (Graphics2D) graphics.create();
             g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-            g2.setFont(BrandTheme.BODY_FONT.deriveFont(12f));
+            g2.setFont(BrandTheme.BODY_FONT.deriveFont(11f));
 
             if (values.length == 0) {
                 g2.setColor(BrandTheme.MUTED);
@@ -725,25 +903,25 @@ public class PayrollDashboard extends JPanel {
 
             int width = getWidth();
             int contentWidth = Math.max(140, width - 40);
-            int rowHeight = Math.max(42, (getHeight() - 20) / Math.max(1, values.length));
-            int barHeight = 10;
-            int y = 14;
+            int rowHeight = Math.max(30, (getHeight() - 16) / Math.max(1, values.length));
+            int barHeight = 8;
+            int y = 10;
 
             for (int index = 0; index < values.length; index++) {
                 String label = index < labels.length ? labels[index] : "Series " + (index + 1);
                 Color color = index < colors.length ? colors[index] : BrandTheme.CHART_PALETTE[index % BrandTheme.CHART_PALETTE.length];
-                String valueText = formatCompactAmount(values[index]);
+                String valueText = MONEY.format(values[index]);
 
                 g2.setColor(BrandTheme.MUTED);
-                g2.setFont(BrandTheme.SUBTITLE_FONT.deriveFont(Font.BOLD, 12f));
+                g2.setFont(BrandTheme.BODY_FONT.deriveFont(11f));
                 g2.drawString(label, 4, y + 10);
 
                 g2.setColor(BrandTheme.TEXT);
-                g2.setFont(BrandTheme.BODY_FONT.deriveFont(12f));
+                g2.setFont(BrandTheme.BODY_FONT.deriveFont(11f));
                 int valueWidth = g2.getFontMetrics().stringWidth(valueText);
                 g2.drawString(valueText, width - valueWidth - 4, y + 10);
 
-                int barY = y + 18;
+                int barY = y + 15;
                 g2.setColor(BrandTheme.TABLE_ALT);
                 g2.fillRoundRect(4, barY, contentWidth, barHeight, 10, 10);
 
@@ -769,7 +947,7 @@ public class PayrollDashboard extends JPanel {
 
     private class PayrollRecordsPanel extends JPanel {
 
-        private final DatePickerField periodSelector = new DatePickerField();
+        private final PeriodSelectionControls periodSelectors = new PeriodSelectionControls();
         private final JComboBox<String> filterSelector = new JComboBox<>(new String[]{"Employee Name", "Employee Number"});
         private final JTextField searchField = new JTextField();
         private final JTable recordsTable = new JTable();
@@ -808,14 +986,10 @@ public class PayrollDashboard extends JPanel {
             BrandTheme.stylePrimaryButton(btnView);
             BrandTheme.styleInputField(searchField);
             BrandTheme.styleComboBox(filterSelector);
-            periodSelector.setDefaultDate(resolveLatestAvailablePeriodDate());
-            setControlWidth(periodSelector, 190);
-            if (!availablePeriods.isEmpty()) {
-                periodSelector.setDate(resolveLatestAvailablePeriodDate());
-            }
             filterSelector.setFont(BrandTheme.BODY_FONT.deriveFont(13f));
             filterSelector.setPreferredSize(new Dimension(160, 34));
             searchField.setPreferredSize(new Dimension(180, 34));
+            periodSelectors.setOnSelectionChange(this::applyFilter);
 
             JLabel filterLabel = new JLabel("Filter By:");
             filterLabel.setFont(BrandTheme.BUTTON_FONT.deriveFont(Font.BOLD, 14f));
@@ -825,15 +999,18 @@ public class PayrollDashboard extends JPanel {
             searchLabel.setFont(BrandTheme.BUTTON_FONT.deriveFont(Font.BOLD, 14f));
             searchLabel.setForeground(BrandTheme.TEXT);
 
-            JLabel periodLabel = new JLabel("Pay Period");
-            periodLabel.setFont(BrandTheme.BUTTON_FONT.deriveFont(Font.BOLD, 14f));
-            periodLabel.setForeground(BrandTheme.TEXT);
+            JLabel cutoffLabel = new JLabel("Pay Period");
+            JLabel monthLabel = new JLabel("Month");
+            JLabel yearLabel = new JLabel("Year");
+            for (JLabel label : new JLabel[]{cutoffLabel, monthLabel, yearLabel}) {
+                label.setFont(BrandTheme.BUTTON_FONT.deriveFont(Font.BOLD, 14f));
+                label.setForeground(BrandTheme.TEXT);
+            }
 
             btnSearch.addActionListener(evt -> applyFilter());
             btnRefresh.addActionListener(evt -> reloadRows());
             btnView.addActionListener(evt -> viewSelectedPayslip());
             searchField.addActionListener(evt -> applyFilter());
-            periodSelector.setOnDateChange(this::applyFilter);
 
             firstRow.add(filterLabel);
             firstRow.add(Box.createHorizontalStrut(8));
@@ -845,9 +1022,17 @@ public class PayrollDashboard extends JPanel {
             firstRow.add(Box.createHorizontalStrut(10));
             firstRow.add(btnSearch);
 
-            secondRow.add(periodLabel);
+            secondRow.add(cutoffLabel);
             secondRow.add(Box.createHorizontalStrut(8));
-            secondRow.add(periodSelector);
+            secondRow.add(periodSelectors.getCutoffSelector());
+            secondRow.add(Box.createHorizontalStrut(12));
+            secondRow.add(monthLabel);
+            secondRow.add(Box.createHorizontalStrut(8));
+            secondRow.add(periodSelectors.getMonthSelector());
+            secondRow.add(Box.createHorizontalStrut(12));
+            secondRow.add(yearLabel);
+            secondRow.add(Box.createHorizontalStrut(8));
+            secondRow.add(periodSelectors.getYearSelector());
             secondRow.add(Box.createHorizontalStrut(10));
             secondRow.add(btnRefresh);
             secondRow.add(Box.createHorizontalStrut(10));
@@ -891,14 +1076,6 @@ public class PayrollDashboard extends JPanel {
                     continue;
                 }
 
-                try {
-                    if (LocalDate.parse(row[3].trim()).getYear() != displayDataYear) {
-                        continue;
-                    }
-                } catch (Exception e) {
-                    continue;
-                }
-
                 allRows.add(row);
             }
             allRows.sort(Comparator.comparing((String[] row) -> row[3]).reversed()
@@ -911,12 +1088,10 @@ public class PayrollDashboard extends JPanel {
             String query = searchField.getText().trim().toLowerCase();
             visibleRows = new ArrayList<>();
             String filterType = String.valueOf(filterSelector.getSelectedItem());
-            LocalDate selectedDate = periodSelector.getDate();
-            PayrollPeriodOption selectedPeriod = findPeriodForDate(selectedDate);
-            boolean specificDateSelected = selectedDate != null;
+            PayrollPeriodOption selectedPeriod = periodSelectors.getSelectedPeriod();
 
             for (String[] row : allRows) {
-                if (specificDateSelected && selectedPeriod == null) {
+                if (selectedPeriod == null) {
                     continue;
                 }
                 if (selectedPeriod != null) {
@@ -950,8 +1125,7 @@ public class PayrollDashboard extends JPanel {
             String periodSummary = selectedPeriod != null
                     ? " for " + formatPeriodFilterLabel(selectedPeriod)
                     : "";
-            summaryLabel.setText("Showing " + visibleRows.size() + " saved payroll records" + periodSummary
-                    + " aligned to the " + displayDataYear + " attendance dataset.");
+            summaryLabel.setText("Showing " + visibleRows.size() + " saved payroll records" + periodSummary + ".");
         }
 
         private void viewSelectedPayslip() {
