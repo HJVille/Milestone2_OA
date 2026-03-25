@@ -1,6 +1,6 @@
 # MotorPH Payroll System
 
-MotorPH is a Java Swing desktop system for payroll, employee management, attendance, leave processing, account administration, and employee self-service. The project was refactored for MO-IT110 Milestone 2 using object-oriented programming and layered architecture.
+MotorPH is a Java Swing desktop system for payroll, employee management, attendance, leave processing, account administration, and employee self-service. The project was finalized for the MO-IT110 Terminal Assessment using object-oriented programming and layered architecture.
 
 This README is written for project checking and classroom evaluation. It explains the system, how to run it, how to use each dashboard, and the exact working credentials used for checking.
 
@@ -67,7 +67,7 @@ Entry point:
 
 ## 4. OOP And Architecture Notes
 
-The project demonstrates the Milestone 2 requirements:
+The project demonstrates the final OOP requirements for the Terminal Assessment:
 
 - Encapsulation
   - entities use private fields with getters and setters
@@ -347,4 +347,4 @@ Automated test files were used during development and are not included in the fi
 
 ## 13. Repository
 
-- Repository: `https://github.com/HJVille/Milestone2_OA/tree/Milestone-2-Submission`
+- Repository: `https://github.com/HJVille/Milestone2_OA/tree/terminal-assessment-submission`
