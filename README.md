@@ -347,4 +347,4 @@ Automated test files were used during development and are not included in the fi
 
 ## 13. Repository
 
-- Repository: `https://github.com/HJVille/MO-IT110-OOP-OOA/tree/terminal-assessment-submission`
+- Repository: `https://github.com/HJVille/MO-IT110-OOP-OOA`
